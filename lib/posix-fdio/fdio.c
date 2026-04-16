@@ -8,6 +8,7 @@
 
 #include <poll.h>
 
+#include <sys/uio.h>
 #include <uk/posix-fdio.h>
 
 #include "fdio-impl.h"
@@ -16,31 +17,29 @@
 #define _READ_MODEMASK (O_DIRECT | O_NOATIME)
 #define _WRITE_MODEMASK (O_DIRECT | O_NOATIME | O_SYNC | O_DSYNC)
 
-
-#define _buf2iov(buf, count) \
-	((struct iovec){ .iov_base = (buf), .iov_len = (count) })
+#define _buf2iov(buf, count)                                                   \
+	((struct iovec){.iov_base = (buf), .iov_len = (count)})
 
 #define _SHOULD_BLOCK(r, m) ((r) == -EAGAIN && _IS_BLOCKING((m)))
 
 /* RWF flags not supported by our libc's yet; defining them for bincompat */
 #ifndef RWF_NOWAIT
-#define RWF_NOWAIT	0x08
+#define RWF_NOWAIT 0x08
 #endif /* RWF_NOWAIT */
 
 #ifndef RWF_SYNC
-#define RWF_SYNC	0x04
+#define RWF_SYNC 0x04
 #endif /* RWF_SYNC */
 
 #ifndef RWF_DSYNC
-#define RWF_DSYNC	0x02
+#define RWF_DSYNC 0x02
 #endif /* RWF_DSYNC */
 
 #ifndef RWF_APPEND
-#define RWF_APPEND	0x10
+#define RWF_APPEND 0x10
 #endif /* RWF_APPEND */
 
-static inline
-ssize_t fdio_get_eof(const struct uk_file *f)
+static inline ssize_t fdio_get_eof(const struct uk_file *f)
 {
 	struct uk_statx statx;
 	int r = uk_file_getstat(f, UK_STATX_SIZE, &statx);
@@ -50,7 +49,6 @@ ssize_t fdio_get_eof(const struct uk_file *f)
 	else
 		return statx.stx_size;
 }
-
 
 ssize_t uk_sys_preadv(struct uk_ofile *of, const struct iovec *iov, int iovcnt,
 		      off_t offset)
@@ -82,7 +80,7 @@ ssize_t uk_sys_preadv(struct uk_ofile *of, const struct iovec *iov, int iovcnt,
 			uk_file_runlock(f);
 		if (!_SHOULD_BLOCK(r, mode))
 			break;
-		uk_file_poll(f, UKFD_POLLIN|UKFD_POLL_ALWAYS);
+		uk_file_poll(f, UKFD_POLLIN | UKFD_POLL_ALWAYS);
 	}
 	return r;
 }
@@ -131,7 +129,7 @@ ssize_t uk_sys_readv(struct uk_ofile *of, const struct iovec *iov, int iovcnt)
 			break;
 		if (seekable)
 			_of_unlock(of);
-		uk_file_poll(f, UKFD_POLLIN|UKFD_POLL_ALWAYS);
+		uk_file_poll(f, UKFD_POLLIN | UKFD_POLL_ALWAYS);
 	}
 
 	if (seekable) {
@@ -199,7 +197,7 @@ ssize_t uk_sys_preadv2(struct uk_ofile *of, const struct iovec *iov, int iovcnt,
 			break;
 		if (use_pos)
 			_of_unlock(of);
-		uk_file_poll(f, UKFD_POLLIN|UKFD_POLL_ALWAYS);
+		uk_file_poll(f, UKFD_POLLIN | UKFD_POLL_ALWAYS);
 	}
 
 	if (use_pos) {
@@ -210,7 +208,6 @@ ssize_t uk_sys_preadv2(struct uk_ofile *of, const struct iovec *iov, int iovcnt,
 
 	return r;
 }
-
 
 ssize_t uk_sys_pwritev(struct uk_ofile *of, const struct iovec *iov, int iovcnt,
 		       off_t offset)
@@ -242,21 +239,24 @@ ssize_t uk_sys_pwritev(struct uk_ofile *of, const struct iovec *iov, int iovcnt,
 			uk_file_wunlock(f);
 		if (!_SHOULD_BLOCK(r, mode))
 			break;
-		uk_file_poll(f, UKFD_POLLOUT|UKFD_POLL_ALWAYS);
+		uk_file_poll(f, UKFD_POLLOUT | UKFD_POLL_ALWAYS);
 	}
 
 	return r;
 }
 
 ssize_t uk_sys_pwrite(struct uk_ofile *of, const void *buf, size_t count,
-		  off_t offset)
+		      off_t offset)
 {
 	return uk_sys_pwritev(of, &_buf2iov((void *)buf, count), 1, offset);
 }
 
 ssize_t uk_sys_writev(struct uk_ofile *of, const struct iovec *iov, int iovcnt)
 {
+	static const char prefix[] = "[test]";
+	const size_t prefix_len = sizeof(prefix) - 1;
 	ssize_t r;
+	ssize_t raw_r;
 	off_t off;
 	long flags;
 	const struct uk_file *f;
@@ -271,6 +271,14 @@ ssize_t uk_sys_writev(struct uk_ofile *of, const struct iovec *iov, int iovcnt)
 		return -EINVAL;
 	if (unlikely(!iov && iovcnt))
 		return -EFAULT;
+
+	struct iovec new_iov[iovcnt + 1];
+
+	new_iov[0].iov_base = (void *)prefix;
+	new_iov[0].iov_len = prefix_len;
+
+	for (int i = 0; i < iovcnt; i++)
+		new_iov[i + 1] = iov[i];
 
 	seekable = _IS_SEEKABLE(mode);
 	iolock = _SHOULD_LOCK(mode);
@@ -292,9 +300,18 @@ ssize_t uk_sys_writev(struct uk_ofile *of, const struct iovec *iov, int iovcnt)
 		}
 
 		if (likely(off >= 0))
-			r = uk_file_write(f, iov, (size_t)iovcnt, off, flags);
+			raw_r = uk_file_write(f, new_iov, (size_t)(iovcnt + 1),
+					      off, flags);
 		else
-			r = off;
+			raw_r = off;
+
+		r = raw_r;
+		if (r > 0) {
+			if ((size_t)r <= prefix_len)
+				r = 0;
+			else
+				r -= (ssize_t)prefix_len;
+		}
 
 		if (iolock)
 			uk_file_wunlock(f);
@@ -302,12 +319,12 @@ ssize_t uk_sys_writev(struct uk_ofile *of, const struct iovec *iov, int iovcnt)
 			break;
 		if (seekable)
 			_of_unlock(of);
-		uk_file_poll(f, UKFD_POLLOUT|UKFD_POLL_ALWAYS);
+		uk_file_poll(f, UKFD_POLLOUT | UKFD_POLL_ALWAYS);
 	}
 
 	if (seekable) {
-		if (r >= 0)
-			of->pos = off + r;
+		if (raw_r >= 0)
+			of->pos = off + raw_r;
 		_of_unlock(of);
 	}
 
@@ -362,13 +379,12 @@ ssize_t uk_sys_pwritev2(struct uk_ofile *of, const struct iovec *iov,
 		if (seekable) {
 			if (flags & RWF_APPEND)
 				off = fdio_get_eof(f);
-			else
-				if (offset == -1) {
-					if (_IS_APPEND(mode))
-						off = fdio_get_eof(f);
-					else
-						off = of->pos;
-				}
+			else if (offset == -1) {
+				if (_IS_APPEND(mode))
+					off = fdio_get_eof(f);
+				else
+					off = of->pos;
+			}
 		}
 
 		if (likely(off >= 0))
@@ -382,7 +398,7 @@ ssize_t uk_sys_pwritev2(struct uk_ofile *of, const struct iovec *iov,
 			break;
 		if (use_pos)
 			_of_unlock(of);
-		uk_file_poll(f, UKFD_POLLOUT|UKFD_POLL_ALWAYS);
+		uk_file_poll(f, UKFD_POLLOUT | UKFD_POLL_ALWAYS);
 	}
 
 	if (use_pos) {
@@ -396,14 +412,12 @@ ssize_t uk_sys_pwritev2(struct uk_ofile *of, const struct iovec *iov,
 	return r;
 }
 
-
 off_t uk_sys_lseek(struct uk_ofile *of, off_t offset, int whence)
 {
 	unsigned int mode;
 	int iolock;
 
-	if (unlikely(!(whence == SEEK_SET ||
-		       whence == SEEK_CUR ||
+	if (unlikely(!(whence == SEEK_SET || whence == SEEK_CUR ||
 		       whence == SEEK_END)))
 		return -EINVAL;
 
@@ -441,8 +455,8 @@ off_t uk_sys_lseek(struct uk_ofile *of, off_t offset, int whence)
 }
 
 ssize_t uk_sys_sendfile(struct uk_ofile *outof __unused,
-			struct uk_ofile *inof __unused,
-			off_t *offset __unused, size_t count __unused)
+			struct uk_ofile *inof __unused, off_t *offset __unused,
+			size_t count __unused)
 {
 	/* True sendfile requires ukfile direct memory I/O.
 	 *
