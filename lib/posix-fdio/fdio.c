@@ -253,10 +253,7 @@ ssize_t uk_sys_pwrite(struct uk_ofile *of, const void *buf, size_t count,
 
 ssize_t uk_sys_writev(struct uk_ofile *of, const struct iovec *iov, int iovcnt)
 {
-	static const char prefix[] = "[test]";
-	const size_t prefix_len = sizeof(prefix) - 1;
 	ssize_t r;
-	ssize_t raw_r;
 	off_t off;
 	long flags;
 	const struct uk_file *f;
@@ -271,14 +268,6 @@ ssize_t uk_sys_writev(struct uk_ofile *of, const struct iovec *iov, int iovcnt)
 		return -EINVAL;
 	if (unlikely(!iov && iovcnt))
 		return -EFAULT;
-
-	struct iovec new_iov[iovcnt + 1];
-
-	new_iov[0].iov_base = (void *)prefix;
-	new_iov[0].iov_len = prefix_len;
-
-	for (int i = 0; i < iovcnt; i++)
-		new_iov[i + 1] = iov[i];
 
 	seekable = _IS_SEEKABLE(mode);
 	iolock = _SHOULD_LOCK(mode);
@@ -300,18 +289,9 @@ ssize_t uk_sys_writev(struct uk_ofile *of, const struct iovec *iov, int iovcnt)
 		}
 
 		if (likely(off >= 0))
-			raw_r = uk_file_write(f, new_iov, (size_t)(iovcnt + 1),
-					      off, flags);
+			r = uk_file_write(f, iov, (size_t)iovcnt, off, flags);
 		else
-			raw_r = off;
-
-		r = raw_r;
-		if (r > 0) {
-			if ((size_t)r <= prefix_len)
-				r = 0;
-			else
-				r -= (ssize_t)prefix_len;
-		}
+			r = off;
 
 		if (iolock)
 			uk_file_wunlock(f);
@@ -323,8 +303,8 @@ ssize_t uk_sys_writev(struct uk_ofile *of, const struct iovec *iov, int iovcnt)
 	}
 
 	if (seekable) {
-		if (raw_r >= 0)
-			of->pos = off + raw_r;
+		if (r >= 0)
+			of->pos = off + r;
 		_of_unlock(of);
 	}
 

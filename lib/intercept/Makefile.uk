@@ -1,0 +1,6 @@
+$(eval $(call addlib_s,libintercept,$(CONFIG_LIBINTERCEPT)))
+
+CINCLUDES-y += -I$(LIBINTERCEPT_BASE)/include
+CXXINCLUDES-y += -I$(LIBINTERCEPT_BASE)/include
+
+LIBINTERCEPT_SRCS-y += $(LIBINTERCEPT_BASE)/intercept.c

@@ -1,0 +1,6 @@
+config LIBINTERCEPT
+	bool "intercept: boot-time init probe"
+	default n
+	help
+		Loads a minimal intercept library during boot and prints a single
+		message once initialization runs.
