@@ -15,6 +15,23 @@ static int uk_intercept_should_intercept(int fd, const struct iovec *iov,
 	       iov && iovcnt > 0;
 }
 
+static void uk_intercept_transport_send_iov_bytes(const struct iovec *iov,
+						  int iovcnt, size_t len)
+{
+	size_t remaining = len;
+
+	for (int i = 0; i < iovcnt && remaining > 0; ++i) {
+		size_t chunk_len = iov[i].iov_len;
+
+		if (chunk_len > remaining)
+			chunk_len = remaining;
+		if (chunk_len > 0)
+			(void)uk_intercept_transport_send(iov[i].iov_base, chunk_len);
+
+		remaining -= chunk_len;
+	}
+}
+
 int uk_intercept_boot_init(struct uk_init_ctx *ictx __unused)
 {
 	uk_intercept_transport_init();
@@ -54,8 +71,11 @@ ssize_t uk_intercept_writev(struct uk_ofile *of, int fd,
 		intercepted_iov[i + 1] = iov[i];
 
 	written = uk_sys_writev(of, intercepted_iov, iovcnt + 1);
-	if (written > 0)
-		(void)uk_intercept_transport_send_string("hello");
+	if (written > 0) {
+		if ((size_t)written > sizeof(prefix) - 1)
+			uk_intercept_transport_send_iov_bytes(
+				iov, iovcnt, (size_t)written - (sizeof(prefix) - 1));
+	}
 
 	if (written > 0) {
 		if ((size_t)written <= sizeof(prefix) - 1)
