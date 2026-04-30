@@ -38,3 +38,7 @@ GTAGS
 cscope.*
 ncscope.*
 support/scripts/uk_trace/uk_trace.egg-info/
+
+# nvim completion
+compile_commands.json
+sync-compile-commands.sh
