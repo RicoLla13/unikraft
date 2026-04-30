@@ -4,3 +4,26 @@ config LIBINTERCEPT
 	help
 		Loads a minimal intercept library during boot and prints a single
 		message once initialization runs.
+
+if LIBINTERCEPT
+
+config LIBINTERCEPT_TRANSPORT_SOCKET
+	bool "TCP transport probe"
+	select LIBPOSIX_SOCKET
+	default y
+	help
+		Enable a minimal TCP transport for validating guest-to-host
+		connectivity from the intercept library.
+
+config LIBINTERCEPT_REMOTE_IPV4
+	string "Remote IPv4 address"
+	depends on LIBINTERCEPT_TRANSPORT_SOCKET
+	default "172.44.0.1"
+
+config LIBINTERCEPT_REMOTE_PORT
+	int "Remote TCP port"
+	depends on LIBINTERCEPT_TRANSPORT_SOCKET
+	range 1 65535
+	default 9000
+
+endif

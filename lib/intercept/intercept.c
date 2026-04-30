@@ -3,6 +3,8 @@
 #include <uk/print.h>
 #include <uk/intercept.h>
 
+#include "intercept_internal.h"
+
 static int intercept_ready;
 static int intercept_app_active;
 
@@ -15,9 +17,15 @@ static int uk_intercept_should_intercept(int fd, const struct iovec *iov,
 
 int uk_intercept_boot_init(struct uk_init_ctx *ictx __unused)
 {
+	uk_intercept_transport_init();
 	intercept_ready = 1;
 	uk_pr_info("intercept: loaded\n");
 	return 0;
+}
+
+static void uk_intercept_boot_term(struct uk_term_ctx *ctx __unused)
+{
+	uk_intercept_transport_term();
 }
 
 void uk_intercept_enter_app(void)
@@ -30,8 +38,8 @@ void uk_intercept_leave_app(void)
 	intercept_app_active = 0;
 }
 
-ssize_t uk_intercept_writev(struct uk_ofile *of, int fd, const struct iovec *iov,
-			    int iovcnt)
+ssize_t uk_intercept_writev(struct uk_ofile *of, int fd,
+			    const struct iovec *iov, int iovcnt)
 {
 	static const char prefix[] = "[test]";
 	struct iovec intercepted_iov[iovcnt + 1];
@@ -46,6 +54,8 @@ ssize_t uk_intercept_writev(struct uk_ofile *of, int fd, const struct iovec *iov
 		intercepted_iov[i + 1] = iov[i];
 
 	written = uk_sys_writev(of, intercepted_iov, iovcnt + 1);
+	if (written > 0)
+		(void)uk_intercept_transport_send_string("hello");
 
 	if (written > 0) {
 		if ((size_t)written <= sizeof(prefix) - 1)
@@ -66,4 +76,4 @@ ssize_t uk_intercept_write(struct uk_ofile *of, int fd, const void *buf,
 	return uk_intercept_writev(of, fd, &iov, 1);
 }
 
-uk_late_initcall(uk_intercept_boot_init, 0);
+uk_late_initcall(uk_intercept_boot_init, uk_intercept_boot_term);
