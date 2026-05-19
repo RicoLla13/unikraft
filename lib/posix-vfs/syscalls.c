@@ -16,6 +16,7 @@
 #endif /* UK_LIBC_SYSCALLS */
 
 #include <uk/errptr.h>
+#include <uk/intercept.h>
 #include <uk/posix-fdio.h>
 #include <uk/posix-fdtab.h>
 #include <uk/posix-vfs.h>
@@ -190,6 +191,11 @@ UK_SYSCALL_R_DEFINE(int, faccessat, int, dfd, const char *, path, int, mode)
 
 UK_SYSCALL_R_DEFINE(int, access, const char *, path, int, mode)
 {
+	int ret = uk_intercept_access(path, mode);
+
+	if (ret != -ENOTSUP)
+		return ret;
+
 	return uk_sys_access(path, mode);
 }
 

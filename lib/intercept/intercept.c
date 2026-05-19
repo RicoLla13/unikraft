@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
+#include <errno.h>
+
 #include <uk/init.h>
 #include <uk/print.h>
 #include <uk/intercept.h>
@@ -6,31 +8,6 @@
 #include "intercept_internal.h"
 
 static int intercept_ready;
-static int intercept_app_active;
-
-static int uk_intercept_should_intercept(int fd, const struct iovec *iov,
-					 int iovcnt)
-{
-	return intercept_ready && intercept_app_active && fd >= 1 && fd <= 2 &&
-	       iov && iovcnt > 0;
-}
-
-static void uk_intercept_transport_send_iov_bytes(const struct iovec *iov,
-						  int iovcnt, size_t len)
-{
-	size_t remaining = len;
-
-	for (int i = 0; i < iovcnt && remaining > 0; ++i) {
-		size_t chunk_len = iov[i].iov_len;
-
-		if (chunk_len > remaining)
-			chunk_len = remaining;
-		if (chunk_len > 0)
-			(void)uk_intercept_transport_send(iov[i].iov_base, chunk_len);
-
-		remaining -= chunk_len;
-	}
-}
 
 int uk_intercept_boot_init(struct uk_init_ctx *ictx __unused)
 {
@@ -45,55 +22,23 @@ static void uk_intercept_boot_term(struct uk_term_ctx *ctx __unused)
 	uk_intercept_transport_term();
 }
 
-void uk_intercept_enter_app(void)
+int uk_intercept_access(const char *path, int mode)
 {
-	intercept_app_active = 1;
-}
+	int saved_errno;
+	int ret;
 
-void uk_intercept_leave_app(void)
-{
-	intercept_app_active = 0;
-}
+	if (!intercept_ready)
+		return -ENOTSUP;
 
-ssize_t uk_intercept_writev(struct uk_ofile *of, int fd,
-			    const struct iovec *iov, int iovcnt)
-{
-	static const char prefix[] = "[test]";
-	struct iovec intercepted_iov[iovcnt + 1];
-	ssize_t written;
+	if (!path)
+		return -EFAULT;
 
-	if (!uk_intercept_should_intercept(fd, iov, iovcnt))
-		return uk_sys_writev(of, iov, iovcnt);
+	saved_errno = errno;
+	ret = uk_intercept_rpc_access(path, mode);
+	if (ret >= 0)
+		errno = saved_errno;
 
-	intercepted_iov[0].iov_base = (void *)prefix;
-	intercepted_iov[0].iov_len = sizeof(prefix) - 1;
-	for (int i = 0; i < iovcnt; ++i)
-		intercepted_iov[i + 1] = iov[i];
-
-	written = uk_sys_writev(of, intercepted_iov, iovcnt + 1);
-	if (written > 0) {
-		if ((size_t)written > sizeof(prefix) - 1)
-			uk_intercept_transport_send_iov_bytes(
-				iov, iovcnt, (size_t)written - (sizeof(prefix) - 1));
-	}
-
-	if (written > 0) {
-		if ((size_t)written <= sizeof(prefix) - 1)
-			return 0;
-		return written - (ssize_t)(sizeof(prefix) - 1);
-	}
-
-	return written;
-}
-
-ssize_t uk_intercept_write(struct uk_ofile *of, int fd, const void *buf,
-			   size_t count)
-{
-	struct iovec iov;
-
-	iov.iov_base = (void *)buf;
-	iov.iov_len = count;
-	return uk_intercept_writev(of, fd, &iov, 1);
+	return ret;
 }
 
 uk_late_initcall(uk_intercept_boot_init, uk_intercept_boot_term);

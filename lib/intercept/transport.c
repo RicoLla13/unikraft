@@ -140,12 +140,40 @@ ssize_t uk_intercept_transport_send(const void *buf, size_t len)
 	return rc;
 }
 
-ssize_t uk_intercept_transport_send_string(const char *msg)
+ssize_t uk_intercept_transport_recv_exact(void *buf, size_t len)
 {
-	if (!msg)
+	char *p = buf;
+	size_t remaining = len;
+	ssize_t rc;
+
+	if (!buf || !len)
 		return -EINVAL;
 
-	return uk_intercept_transport_send(msg, strlen(msg));
+	rc = uk_intercept_transport_connect();
+	if (rc < 0)
+		return rc;
+
+	while (remaining > 0) {
+		rc = recv(intercept_transport_fd, p, remaining, 0);
+		if (rc < 0) {
+			rc = -errno;
+			uk_pr_err("intercept: recv(len=%zu) failed: %d\n",
+				  remaining, (int)-rc);
+			uk_intercept_transport_reset();
+			return rc;
+		}
+		if (rc == 0) {
+			uk_pr_err("intercept: recv(len=%zu) hit EOF\n",
+				  remaining);
+			uk_intercept_transport_reset();
+			return -ECONNRESET;
+		}
+
+		p += rc;
+		remaining -= (size_t)rc;
+	}
+
+	return (ssize_t)len;
 }
 #else
 void uk_intercept_transport_init(void)
@@ -161,7 +189,8 @@ ssize_t uk_intercept_transport_send(const void *buf __unused, size_t len __unuse
 	return -ENOTSUP;
 }
 
-ssize_t uk_intercept_transport_send_string(const char *msg __unused)
+ssize_t uk_intercept_transport_recv_exact(void *buf __unused,
+					  size_t len __unused)
 {
 	return -ENOTSUP;
 }

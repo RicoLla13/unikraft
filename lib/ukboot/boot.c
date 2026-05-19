@@ -41,7 +41,6 @@
 #include <errno.h>
 
 #include <uk/boot.h>
-#include <uk/intercept.h>
 #ifdef CONFIG_LIBUKPAGING
 #include <uk/falloc.h>
 #include <uk/paging.h>
@@ -511,9 +510,7 @@ int do_main(int argc, char *argv[])
 	uk_pr_info("])\n");
 #endif /* CONFIG_LIBUKDEBUG_PRINTK_INFO */
 
-	uk_intercept_enter_app();
 	ret = main(argc, argv);
-	uk_intercept_leave_app();
 	uk_pr_info("main returned %d\n", ret);
 	return ret;
 }

@@ -24,6 +24,6 @@ config LIBINTERCEPT_REMOTE_PORT
 	int "Remote TCP port"
 	depends on LIBINTERCEPT_TRANSPORT_SOCKET
 	range 1 65535
-	default 9000
+	default 9999
 
 endif

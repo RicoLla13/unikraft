@@ -10,7 +10,6 @@
 #include <sys/ioctl.h>
 
 #include <uk/posix-fdio.h>
-#include <uk/intercept.h>
 #if CONFIG_LIBVFSCORE
 #include <vfscore/syscalls.h>
 #endif /* CONFIG_LIBVFSCORE */
@@ -241,7 +240,7 @@ UK_SYSCALL_R_DEFINE(ssize_t, writev, int, fd, const struct iovec *, iov,
 
 	switch (uk_fdtab_shim_get(fd, &sf)) {
 	case UK_SHIM_OFILE:
-		r = uk_intercept_writev(sf.ofile, fd, iov, iovcnt);
+		r = uk_sys_writev(sf.ofile, iov, iovcnt);
 		uk_ofile_release(sf.ofile);
 		break;
 #if CONFIG_LIBVFSCORE
@@ -264,7 +263,7 @@ UK_SYSCALL_R_DEFINE(ssize_t, write, int, fd, const void *, buf, size_t, count)
 
 	switch (uk_fdtab_shim_get(fd, &sf)) {
 	case UK_SHIM_OFILE:
-		r = uk_intercept_write(sf.ofile, fd, buf, count);
+		r = uk_sys_write(sf.ofile, buf, count);
 		uk_ofile_release(sf.ofile);
 		break;
 #if CONFIG_LIBVFSCORE
