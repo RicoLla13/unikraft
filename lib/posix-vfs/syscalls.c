@@ -635,6 +635,10 @@ UK_LLSYSCALL_R_DEFINE(int, openat, int, dfd, const char *, path,
 	struct uk_ofile *of;
 	int ret;
 
+	ret = uk_intercept_openat(dfd, path, flags, mode);
+	if (ret != -ENOTSUP)
+		return ret;
+
 	ret = _vfs_atfd(dfd, path, &of);
 	if (unlikely(ret))
 		return ret;

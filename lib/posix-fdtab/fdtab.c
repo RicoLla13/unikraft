@@ -12,6 +12,7 @@
 #include <uk/assert.h>
 #include <uk/config.h>
 #include <uk/init.h>
+#include <uk/intercept.h>
 #include <uk/syscall.h>
 
 #include <uk/posix-fdtab.h>
@@ -628,6 +629,11 @@ int uk_sys_dup(int oldfd)
 
 UK_SYSCALL_R_DEFINE(int, close, int, fd)
 {
+	int ret = uk_intercept_close(fd);
+
+	if (ret != -ENOTSUP)
+		return ret;
+
 	return uk_sys_close(fd);
 }
 

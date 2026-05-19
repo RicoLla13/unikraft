@@ -3,6 +3,7 @@
 #define __UK_INTERCEPT_H__
 
 #include <errno.h>
+#include <sys/types.h>
 
 #include <uk/config.h>
 #include <uk/init.h>
@@ -14,6 +15,8 @@ extern "C" {
 #if CONFIG_LIBINTERCEPT
 int uk_intercept_boot_init(struct uk_init_ctx *ictx);
 int uk_intercept_access(const char *path, int mode);
+int uk_intercept_openat(int dfd, const char *path, int flags, mode_t mode);
+int uk_intercept_close(int fd);
 #else
 static inline int uk_intercept_boot_init(struct uk_init_ctx *ictx __unused)
 {
@@ -22,6 +25,17 @@ static inline int uk_intercept_boot_init(struct uk_init_ctx *ictx __unused)
 
 static inline int uk_intercept_access(const char *path __unused,
 				      int mode __unused)
+{
+	return -ENOTSUP;
+}
+
+static inline int uk_intercept_openat(int dfd __unused, const char *path __unused,
+				      int flags __unused, mode_t mode __unused)
+{
+	return -ENOTSUP;
+}
+
+static inline int uk_intercept_close(int fd __unused)
 {
 	return -ENOTSUP;
 }
