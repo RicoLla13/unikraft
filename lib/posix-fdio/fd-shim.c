@@ -266,6 +266,10 @@ UK_SYSCALL_R_DEFINE(ssize_t, write, int, fd, const void *, buf, size_t, count)
 	ssize_t r;
 	union uk_shim_file sf;
 
+	r = uk_intercept_write(fd, buf, count);
+	if (r != -ENOTSUP)
+		return r;
+
 	switch (uk_fdtab_shim_get(fd, &sf)) {
 	case UK_SHIM_OFILE:
 		r = uk_sys_write(sf.ofile, buf, count);

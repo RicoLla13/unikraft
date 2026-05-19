@@ -22,6 +22,7 @@
 #define SYSCALL_OPENAT 2U
 #define SYSCALL_CLOSE 3U
 #define SYSCALL_READ 4U
+#define SYSCALL_WRITE 6U
 #define SYSCALL_ACCESS 14U
 
 struct rpc_encode_cursor {

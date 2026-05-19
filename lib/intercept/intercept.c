@@ -141,4 +141,26 @@ ssize_t uk_intercept_read(int fd, void *buf, size_t count)
 	return ret;
 }
 
+ssize_t uk_intercept_write(int fd, const void *buf, size_t count)
+{
+	int saved_errno;
+	ssize_t ret;
+
+	if (!intercept_ready)
+		return -ENOTSUP;
+
+	if (!uk_intercept_is_remote_fd(fd))
+		return -ENOTSUP;
+
+	if (!buf && count)
+		return -EFAULT;
+
+	saved_errno = errno;
+	ret = uk_intercept_rpc_write(fd, buf, count);
+	if (ret >= 0)
+		errno = saved_errno;
+
+	return ret;
+}
+
 uk_late_initcall(uk_intercept_boot_init, uk_intercept_boot_term);

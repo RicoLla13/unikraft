@@ -16,5 +16,6 @@ int uk_intercept_rpc_access(const char *path, int mode);
 int uk_intercept_rpc_openat(int dfd, const char *path, int flags, mode_t mode);
 int uk_intercept_rpc_close(int fd);
 ssize_t uk_intercept_rpc_read(int fd, void *buf, size_t count);
+ssize_t uk_intercept_rpc_write(int fd, const void *buf, size_t count);
 
 #endif /* __INTERCEPT_INTERNAL_H__ */
