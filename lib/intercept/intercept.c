@@ -7,6 +7,7 @@
 
 #include "intercept_internal.h"
 
+/* Set once the transport side has been initialized during boot. */
 static int intercept_ready;
 
 int uk_intercept_boot_init(struct uk_init_ctx *ictx __unused)
@@ -33,6 +34,10 @@ int uk_intercept_access(const char *path, int mode)
 	if (!path)
 		return -EFAULT;
 
+	/*
+	 * Preserve the caller-visible errno on successful remote execution.
+	 * Error returns still follow the normal negative errno convention.
+	 */
 	saved_errno = errno;
 	ret = uk_intercept_rpc_access(path, mode);
 	if (ret >= 0)

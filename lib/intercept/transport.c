@@ -14,6 +14,7 @@
 #include "intercept_internal.h"
 
 #if CONFIG_LIBINTERCEPT_TRANSPORT_SOCKET
+/* Current implementation keeps one TCP connection for synchronous RPCs. */
 static int intercept_transport_fd = -1;
 static bool intercept_transport_connected;
 
@@ -53,8 +54,8 @@ static int uk_intercept_transport_connect(void)
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(CONFIG_LIBINTERCEPT_REMOTE_PORT);
-	rc = inet_pton(AF_INET, CONFIG_LIBINTERCEPT_REMOTE_IPV4,
-		       &addr.sin_addr);
+	rc =
+	    inet_pton(AF_INET, CONFIG_LIBINTERCEPT_REMOTE_IPV4, &addr.sin_addr);
 	if (rc != 1) {
 		close(fd);
 		uk_pr_err("intercept: invalid remote IPv4 address: %s\n",
@@ -80,7 +81,9 @@ static int uk_intercept_transport_connect(void)
 	return 0;
 }
 
-static ssize_t uk_intercept_transport_send_all(int fd, const void *buf, size_t len)
+/* Best-effort blocking send used by the request path. */
+static ssize_t uk_intercept_transport_send_all(int fd, const void *buf,
+					       size_t len)
 {
 	const char *p = buf;
 	size_t remaining = len;
@@ -130,7 +133,8 @@ ssize_t uk_intercept_transport_send(const void *buf, size_t len)
 
 	rc = uk_intercept_transport_send_all(intercept_transport_fd, buf, len);
 	if (rc < 0) {
-		uk_pr_err("intercept: send(len=%zu) failed: %d\n", len, (int)-rc);
+		uk_pr_err("intercept: send(len=%zu) failed: %d\n", len,
+			  (int)-rc);
 		uk_intercept_transport_reset();
 		return rc;
 	}
@@ -153,6 +157,8 @@ ssize_t uk_intercept_transport_recv_exact(void *buf, size_t len)
 	if (rc < 0)
 		return rc;
 
+	/* Replies are framed by the RPC layer; the transport just fills
+	 * buffers. */
 	while (remaining > 0) {
 		rc = recv(intercept_transport_fd, p, remaining, 0);
 		if (rc < 0) {
@@ -176,15 +182,12 @@ ssize_t uk_intercept_transport_recv_exact(void *buf, size_t len)
 	return (ssize_t)len;
 }
 #else
-void uk_intercept_transport_init(void)
-{
-}
+void uk_intercept_transport_init(void) {}
 
-void uk_intercept_transport_term(void)
-{
-}
+void uk_intercept_transport_term(void) {}
 
-ssize_t uk_intercept_transport_send(const void *buf __unused, size_t len __unused)
+ssize_t uk_intercept_transport_send(const void *buf __unused,
+				    size_t len __unused)
 {
 	return -ENOTSUP;
 }
