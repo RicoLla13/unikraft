@@ -17,6 +17,7 @@ int uk_intercept_boot_init(struct uk_init_ctx *ictx);
 int uk_intercept_access(const char *path, int mode);
 int uk_intercept_openat(int dfd, const char *path, int flags, mode_t mode);
 int uk_intercept_close(int fd);
+ssize_t uk_intercept_read(int fd, void *buf, size_t count);
 #else
 static inline int uk_intercept_boot_init(struct uk_init_ctx *ictx __unused)
 {
@@ -36,6 +37,12 @@ static inline int uk_intercept_openat(int dfd __unused, const char *path __unuse
 }
 
 static inline int uk_intercept_close(int fd __unused)
+{
+	return -ENOTSUP;
+}
+
+static inline ssize_t uk_intercept_read(int fd __unused, void *buf __unused,
+					size_t count __unused)
 {
 	return -ENOTSUP;
 }

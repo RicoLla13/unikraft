@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 
+#include <uk/intercept.h>
 #include <uk/posix-fdio.h>
 #if CONFIG_LIBVFSCORE
 #include <vfscore/syscalls.h>
@@ -133,6 +134,10 @@ UK_SYSCALL_R_DEFINE(ssize_t, read, int, fd,
 {
 	ssize_t r;
 	union uk_shim_file sf;
+
+	r = uk_intercept_read(fd, buf, count);
+	if (r != -ENOTSUP)
+		return r;
 
 	switch (uk_fdtab_shim_get(fd, &sf)) {
 	case UK_SHIM_OFILE:

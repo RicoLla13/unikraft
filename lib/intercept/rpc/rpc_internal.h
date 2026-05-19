@@ -21,6 +21,7 @@
 #define SYSCALL_VERS 1U
 #define SYSCALL_OPENAT 2U
 #define SYSCALL_CLOSE 3U
+#define SYSCALL_READ 4U
 #define SYSCALL_ACCESS 14U
 
 struct rpc_encode_cursor {
@@ -42,6 +43,8 @@ int rpc_decode_u32(struct rpc_decode_cursor *cursor, uint32_t *value);
 int rpc_put_opaque(uint8_t **p, const uint8_t *end, const void *data,
 		   size_t len);
 int rpc_skip_opaque(const uint8_t **p, const uint8_t *end);
+int rpc_decode_opaque(struct rpc_decode_cursor *cursor, const uint8_t **data,
+		      size_t *len);
 size_t rpc_path_len(const char *path);
 int rpc_call(uint32_t proc, rpc_encode_fn_t encode, const void *arg,
 	     rpc_decode_fn_t decode, void *resp);

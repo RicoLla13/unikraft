@@ -79,6 +79,27 @@ int rpc_skip_opaque(const uint8_t **p, const uint8_t *end)
 	return 0;
 }
 
+int rpc_decode_opaque(struct rpc_decode_cursor *cursor, const uint8_t **data,
+		      size_t *len)
+{
+	uint32_t opaque_len;
+	size_t total;
+	int rc;
+
+	rc = rpc_get_u32(&cursor->p, cursor->end, &opaque_len);
+	if (rc < 0)
+		return rc;
+
+	total = opaque_len + ((4 - (opaque_len & 3)) & 3);
+	if ((size_t)(cursor->end - cursor->p) < total)
+		return -EINVAL;
+
+	*data = cursor->p;
+	*len = opaque_len;
+	cursor->p += total;
+	return 0;
+}
+
 size_t rpc_path_len(const char *path)
 {
 	return strnlen(path, UK_INTERCEPT_MAX_PATH_LEN + 1);
