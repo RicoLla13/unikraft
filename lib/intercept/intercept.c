@@ -38,14 +38,14 @@ int uk_intercept_boot_init(struct uk_init_ctx *ictx __unused)
 
 #if CONFIG_LIBINTERCEPT_CONNECT_BOOT_BEST_EFFORT || \
 	CONFIG_LIBINTERCEPT_CONNECT_BOOT_REQUIRED
-	rc = uk_intercept_transport_connect();
+	rc = uk_intercept_rpc_probe();
 	if (rc < 0) {
 #if CONFIG_LIBINTERCEPT_CONNECT_BOOT_REQUIRED
-		uk_pr_err("intercept: boot-time transport connect required but failed: %d\n",
+		uk_pr_err("intercept: boot-time RPC probe required but failed: %d\n",
 			  -rc);
 		return rc;
 #else
-		uk_pr_warn("intercept: boot-time transport connect failed, will retry on first RPC: %d\n",
+		uk_pr_warn("intercept: boot-time RPC probe failed, will retry on first RPC: %d\n",
 			   -rc);
 #endif
 	}

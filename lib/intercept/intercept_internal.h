@@ -13,6 +13,7 @@ ssize_t uk_intercept_transport_send(const void *buf, size_t len);
 ssize_t uk_intercept_transport_recv_exact(void *buf, size_t len);
 
 /* Per-syscall RPC entry points. */
+int uk_intercept_rpc_probe(void);
 int uk_intercept_rpc_access(const char *path, int mode);
 int uk_intercept_rpc_openat(int dfd, const char *path, int flags, mode_t mode);
 int uk_intercept_rpc_close(int fd);

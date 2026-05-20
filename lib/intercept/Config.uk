@@ -43,14 +43,16 @@ config LIBINTERCEPT_CONNECT_ON_FIRST_RPC
 config LIBINTERCEPT_CONNECT_BOOT_BEST_EFFORT
 	bool "Best-effort connect during boot"
 	help
-		Attempt to connect during intercept boot initialization, but keep
-		booting if the server is not reachable. Later RPCs will retry.
+		Attempt an end-to-end RPC probe during intercept boot
+		initialization, but keep booting if the server is not reachable.
+		Later RPCs will retry.
 
 config LIBINTERCEPT_CONNECT_BOOT_REQUIRED
 	bool "Require successful connect during boot"
 	help
-		Require the transport connection to succeed during intercept boot
-		initialization. If the server is unavailable, intercept init fails.
+		Require an end-to-end RPC probe to succeed during intercept boot
+		initialization. If the server is unavailable or does not answer
+		the probe, intercept init fails.
 
 endchoice
 
