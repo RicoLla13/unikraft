@@ -142,9 +142,13 @@ static int uk_intercept_resolve_remote_dfd(int dfd, const char *path)
 	entry = uk_intercept_fdtab_get_const(dfd);
 	if (!entry)
 		return -EBADF;
-	if (entry->backend != UK_INTERCEPT_FD_REMOTE_DIR)
-		return -ENOTDIR;
 
+	/*
+	 * The current table does not yet carry authoritative file type
+	 * information from the server. Keep the backend tag for future
+	 * dispatch, but let the server remain the source of truth for
+	 * whether a tracked remote fd can act as a dirfd.
+	 */
 	return entry->remote_fd;
 }
 
