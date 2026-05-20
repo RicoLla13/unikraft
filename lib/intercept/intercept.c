@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 #include <fcntl.h>
 #include <errno.h>
+#include <sys/stat.h>
 
 #include <uk/bitops/bitmap.h>
 #include <uk/init.h>
@@ -137,6 +138,28 @@ int uk_intercept_close(int fd)
 
 	uk_clear_bit(fd, intercept_remote_fds);
 	errno = saved_errno;
+	return ret;
+}
+
+int uk_intercept_fstat(int fd, struct stat *statbuf)
+{
+	int saved_errno;
+	int ret;
+
+	if (!intercept_ready)
+		return -ENOTSUP;
+
+	if (!uk_intercept_is_remote_fd(fd))
+		return -ENOTSUP;
+
+	if (!statbuf)
+		return -EFAULT;
+
+	saved_errno = errno;
+	ret = uk_intercept_rpc_fstat(fd, statbuf);
+	if (ret >= 0)
+		errno = saved_errno;
+
 	return ret;
 }
 

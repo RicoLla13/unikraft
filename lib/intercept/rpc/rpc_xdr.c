@@ -42,6 +42,23 @@ int rpc_decode_u32(struct rpc_decode_cursor *cursor, uint32_t *value)
 	return rpc_get_u32(&cursor->p, cursor->end, value);
 }
 
+int rpc_decode_u64(struct rpc_decode_cursor *cursor, uint64_t *value)
+{
+	uint32_t hi;
+	uint32_t lo;
+	int rc;
+
+	rc = rpc_get_u32(&cursor->p, cursor->end, &hi);
+	if (rc < 0)
+		return rc;
+	rc = rpc_get_u32(&cursor->p, cursor->end, &lo);
+	if (rc < 0)
+		return rc;
+
+	*value = ((uint64_t)hi << 32) | lo;
+	return 0;
+}
+
 int rpc_put_opaque(uint8_t **p, const uint8_t *end, const void *data, size_t len)
 {
 	size_t pad = (4 - (len & 3)) & 3;

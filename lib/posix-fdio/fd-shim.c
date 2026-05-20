@@ -317,6 +317,10 @@ UK_SYSCALL_R_DEFINE(int, fstat, int, fd, struct stat *, statbuf)
 	int r;
 	union uk_shim_file sf;
 
+	r = uk_intercept_fstat(fd, statbuf);
+	if (r != -ENOTSUP)
+		return r;
+
 	switch (uk_fdtab_shim_get(fd, &sf)) {
 	case UK_SHIM_OFILE:
 		r = uk_sys_fstat(sf.ofile, statbuf);

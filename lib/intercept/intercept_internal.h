@@ -3,6 +3,7 @@
 #define __INTERCEPT_INTERNAL_H__
 
 #include <stddef.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 
 /* Transport lifecycle and blocking I/O helpers used by the RPC layer. */
@@ -17,6 +18,7 @@ int uk_intercept_rpc_probe(void);
 int uk_intercept_rpc_access(const char *path, int mode);
 int uk_intercept_rpc_openat(int dfd, const char *path, int flags, mode_t mode);
 int uk_intercept_rpc_close(int fd);
+int uk_intercept_rpc_fstat(int fd, struct stat *statbuf);
 ssize_t uk_intercept_rpc_read(int fd, void *buf, size_t count);
 ssize_t uk_intercept_rpc_write(int fd, const void *buf, size_t count);
 
