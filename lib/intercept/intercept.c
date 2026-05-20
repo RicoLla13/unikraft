@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 #include <fcntl.h>
 #include <errno.h>
+#include <string.h>
 #include <sys/stat.h>
 
-#include <uk/bitops/bitmap.h>
 #include <uk/init.h>
+#include <uk/posix-fdtab.h>
 #include <uk/print.h>
 #include <uk/intercept.h>
 
@@ -14,17 +15,137 @@
 
 /* Set once the transport side has been initialized during boot. */
 static int intercept_ready;
-static unsigned long intercept_remote_fds[UK_BITS_TO_LONGS(UK_INTERCEPT_REMOTE_FD_MAX)];
+static struct uk_intercept_fd_entry
+	intercept_fd_entries[UK_INTERCEPT_REMOTE_FD_MAX];
 
 static int uk_intercept_fd_in_range(int fd)
 {
 	return fd >= 0 && fd < UK_INTERCEPT_REMOTE_FD_MAX;
 }
 
-static int uk_intercept_is_remote_fd(int fd)
+static enum uk_intercept_fd_backend uk_intercept_classify_backend(int flags)
 {
-	return uk_intercept_fd_in_range(fd) &&
-	       uk_test_bit(fd, intercept_remote_fds);
+	return (flags & O_DIRECTORY) ? UK_INTERCEPT_FD_REMOTE_DIR
+				     : UK_INTERCEPT_FD_REMOTE_FILE;
+}
+
+static bool uk_intercept_local_fd_in_use(int fd)
+{
+	struct uk_ofile *of;
+
+	of = uk_fdtab_get(fd);
+	if (!of)
+		return false;
+
+	uk_ofile_release(of);
+	return true;
+}
+
+static int uk_intercept_fdtab_alloc_guest_fd(void)
+{
+	int fd;
+
+	for (fd = 0; fd < UK_INTERCEPT_REMOTE_FD_MAX; ++fd) {
+		if (uk_intercept_fdtab_contains(fd))
+			continue;
+		if (uk_intercept_local_fd_in_use(fd))
+			continue;
+
+		return fd;
+	}
+
+	return -EMFILE;
+}
+
+void uk_intercept_fdtab_init(void)
+{
+	memset(intercept_fd_entries, 0, sizeof(intercept_fd_entries));
+}
+
+void uk_intercept_fdtab_reset(void)
+{
+	memset(intercept_fd_entries, 0, sizeof(intercept_fd_entries));
+}
+
+struct uk_intercept_fd_entry *uk_intercept_fdtab_get(int fd)
+{
+	if (!uk_intercept_fd_in_range(fd))
+		return NULL;
+	if (!intercept_fd_entries[fd].used)
+		return NULL;
+
+	return &intercept_fd_entries[fd];
+}
+
+const struct uk_intercept_fd_entry *uk_intercept_fdtab_get_const(int fd)
+{
+	return uk_intercept_fdtab_get(fd);
+}
+
+bool uk_intercept_fdtab_contains(int fd)
+{
+	return uk_intercept_fdtab_get_const(fd) != NULL;
+}
+
+bool uk_intercept_fdtab_is_remote_dir(int fd)
+{
+	const struct uk_intercept_fd_entry *entry =
+		uk_intercept_fdtab_get_const(fd);
+
+	return entry && entry->backend == UK_INTERCEPT_FD_REMOTE_DIR;
+}
+
+int uk_intercept_fdtab_register(int guest_fd, int remote_fd, int flags,
+				mode_t mode)
+{
+	struct uk_intercept_fd_entry *entry;
+
+	if (!uk_intercept_fd_in_range(guest_fd))
+		return -EMFILE;
+
+	entry = &intercept_fd_entries[guest_fd];
+	if (entry->used)
+		return -EBUSY;
+
+	entry->used = true;
+	entry->backend = uk_intercept_classify_backend(flags);
+	entry->remote_fd = remote_fd;
+	entry->flags = flags;
+	entry->mode = mode;
+	entry->cached_offset = 0;
+
+	return 0;
+}
+
+void uk_intercept_fdtab_unregister(int guest_fd)
+{
+	if (!uk_intercept_fd_in_range(guest_fd))
+		return;
+
+	memset(&intercept_fd_entries[guest_fd], 0,
+	       sizeof(intercept_fd_entries[guest_fd]));
+}
+
+static int uk_intercept_resolve_remote_dfd(int dfd, const char *path)
+{
+	const struct uk_intercept_fd_entry *entry;
+
+	/*
+	 * Absolute paths do not consult dirfd. Relative paths may only use
+	 * AT_FDCWD or a tracked remote directory fd.
+	 */
+	if (path[0] == '/')
+		return AT_FDCWD;
+	if (dfd == AT_FDCWD)
+		return AT_FDCWD;
+
+	entry = uk_intercept_fdtab_get_const(dfd);
+	if (!entry)
+		return -EBADF;
+	if (entry->backend != UK_INTERCEPT_FD_REMOTE_DIR)
+		return -ENOTDIR;
+
+	return entry->remote_fd;
 }
 
 int uk_intercept_boot_init(struct uk_init_ctx *ictx __unused)
@@ -34,7 +155,7 @@ int uk_intercept_boot_init(struct uk_init_ctx *ictx __unused)
 	int rc;
 #endif
 
-	uk_bitmap_zero(intercept_remote_fds, UK_INTERCEPT_REMOTE_FD_MAX);
+	uk_intercept_fdtab_init();
 	uk_intercept_transport_init();
 
 #if CONFIG_LIBINTERCEPT_CONNECT_BOOT_BEST_EFFORT || \
@@ -59,6 +180,7 @@ int uk_intercept_boot_init(struct uk_init_ctx *ictx __unused)
 
 static void uk_intercept_boot_term(struct uk_term_ctx *ctx __unused)
 {
+	uk_intercept_fdtab_reset();
 	uk_intercept_transport_term();
 }
 
@@ -87,9 +209,11 @@ int uk_intercept_access(const char *path, int mode)
 
 int uk_intercept_openat(int dfd, const char *path, int flags, mode_t mode)
 {
+	int guest_fd;
 	int saved_errno;
 	int remote_dfd;
 	int ret;
+	int rc;
 
 	if (!intercept_ready)
 		return -ENOTSUP;
@@ -97,66 +221,72 @@ int uk_intercept_openat(int dfd, const char *path, int flags, mode_t mode)
 	if (!path)
 		return -EFAULT;
 
-	/*
-	 * Absolute paths do not consult dirfd. Relative paths may only use
-	 * AT_FDCWD or a descriptor previously returned by the intercept layer.
-	 */
-	remote_dfd = (path[0] == '/') ? AT_FDCWD : dfd;
-	if (remote_dfd != AT_FDCWD && !uk_intercept_is_remote_fd(remote_dfd))
-		return -EBADF;
+	remote_dfd = uk_intercept_resolve_remote_dfd(dfd, path);
+	if (remote_dfd < 0 && remote_dfd != AT_FDCWD)
+		return remote_dfd;
 
 	saved_errno = errno;
 	ret = uk_intercept_rpc_openat(remote_dfd, path, flags, mode);
 	if (ret < 0)
 		return ret;
 
-	if (!uk_intercept_fd_in_range(ret)) {
+	guest_fd = uk_intercept_fdtab_alloc_guest_fd();
+	if (guest_fd < 0) {
 		(void) uk_intercept_rpc_close(ret);
-		return -EMFILE;
+		return guest_fd;
 	}
 
-	uk_set_bit(ret, intercept_remote_fds);
+	rc = uk_intercept_fdtab_register(guest_fd, ret, flags, mode);
+	if (rc < 0) {
+		(void) uk_intercept_rpc_close(ret);
+		return rc;
+	}
+
 	errno = saved_errno;
-	return ret;
+	return guest_fd;
 }
 
 int uk_intercept_close(int fd)
 {
+	struct uk_intercept_fd_entry *entry;
 	int saved_errno;
 	int ret;
 
 	if (!intercept_ready)
 		return -ENOTSUP;
 
-	if (!uk_intercept_is_remote_fd(fd))
+	entry = uk_intercept_fdtab_get(fd);
+	if (!entry)
 		return -ENOTSUP;
 
 	saved_errno = errno;
-	ret = uk_intercept_rpc_close(fd);
+	ret = uk_intercept_rpc_close(entry->remote_fd);
 	if (ret < 0)
 		return ret;
 
-	uk_clear_bit(fd, intercept_remote_fds);
+	uk_intercept_fdtab_unregister(fd);
 	errno = saved_errno;
 	return ret;
 }
 
 int uk_intercept_fstat(int fd, struct stat *statbuf)
 {
+	const struct uk_intercept_fd_entry *entry;
 	int saved_errno;
 	int ret;
 
 	if (!intercept_ready)
 		return -ENOTSUP;
 
-	if (!uk_intercept_is_remote_fd(fd))
+	entry = uk_intercept_fdtab_get_const(fd);
+	if (!entry)
 		return -ENOTSUP;
 
 	if (!statbuf)
 		return -EFAULT;
 
 	saved_errno = errno;
-	ret = uk_intercept_rpc_fstat(fd, statbuf);
+	ret = uk_intercept_rpc_fstat(entry->remote_fd, statbuf);
 	if (ret >= 0)
 		errno = saved_errno;
 
@@ -176,13 +306,9 @@ int uk_intercept_newfstatat(int dfd, const char *path, struct stat *statbuf,
 	if (!path || !statbuf)
 		return -EFAULT;
 
-	/*
-	 * Absolute paths do not consult dirfd. Relative paths may only use
-	 * AT_FDCWD or a descriptor previously returned by the intercept layer.
-	 */
-	remote_dfd = (path[0] == '/') ? AT_FDCWD : dfd;
-	if (remote_dfd != AT_FDCWD && !uk_intercept_is_remote_fd(remote_dfd))
-		return -EBADF;
+	remote_dfd = uk_intercept_resolve_remote_dfd(dfd, path);
+	if (remote_dfd < 0 && remote_dfd != AT_FDCWD)
+		return remote_dfd;
 
 	saved_errno = errno;
 	ret = uk_intercept_rpc_newfstatat(remote_dfd, path, statbuf, flags);
@@ -194,20 +320,22 @@ int uk_intercept_newfstatat(int dfd, const char *path, struct stat *statbuf,
 
 ssize_t uk_intercept_read(int fd, void *buf, size_t count)
 {
+	const struct uk_intercept_fd_entry *entry;
 	int saved_errno;
 	ssize_t ret;
 
 	if (!intercept_ready)
 		return -ENOTSUP;
 
-	if (!uk_intercept_is_remote_fd(fd))
+	entry = uk_intercept_fdtab_get_const(fd);
+	if (!entry)
 		return -ENOTSUP;
 
 	if (!buf && count)
 		return -EFAULT;
 
 	saved_errno = errno;
-	ret = uk_intercept_rpc_read(fd, buf, count);
+	ret = uk_intercept_rpc_read(entry->remote_fd, buf, count);
 	if (ret >= 0)
 		errno = saved_errno;
 
@@ -216,20 +344,22 @@ ssize_t uk_intercept_read(int fd, void *buf, size_t count)
 
 ssize_t uk_intercept_write(int fd, const void *buf, size_t count)
 {
+	const struct uk_intercept_fd_entry *entry;
 	int saved_errno;
 	ssize_t ret;
 
 	if (!intercept_ready)
 		return -ENOTSUP;
 
-	if (!uk_intercept_is_remote_fd(fd))
+	entry = uk_intercept_fdtab_get_const(fd);
+	if (!entry)
 		return -ENOTSUP;
 
 	if (!buf && count)
 		return -EFAULT;
 
 	saved_errno = errno;
-	ret = uk_intercept_rpc_write(fd, buf, count);
+	ret = uk_intercept_rpc_write(entry->remote_fd, buf, count);
 	if (ret >= 0)
 		errno = saved_errno;
 
