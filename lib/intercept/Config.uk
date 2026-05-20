@@ -26,4 +26,32 @@ config LIBINTERCEPT_REMOTE_PORT
 	range 1 65535
 	default 9999
 
+choice
+	prompt "Server connection policy"
+	depends on LIBINTERCEPT_TRANSPORT_SOCKET
+	default LIBINTERCEPT_CONNECT_ON_FIRST_RPC
+	help
+		Select when the intercept transport should establish its TCP
+		connection to the host syscall server.
+
+config LIBINTERCEPT_CONNECT_ON_FIRST_RPC
+	bool "Connect on first RPC"
+	help
+		Keep boot independent from server availability and connect only
+		when the first intercepted RPC is issued.
+
+config LIBINTERCEPT_CONNECT_BOOT_BEST_EFFORT
+	bool "Best-effort connect during boot"
+	help
+		Attempt to connect during intercept boot initialization, but keep
+		booting if the server is not reachable. Later RPCs will retry.
+
+config LIBINTERCEPT_CONNECT_BOOT_REQUIRED
+	bool "Require successful connect during boot"
+	help
+		Require the transport connection to succeed during intercept boot
+		initialization. If the server is unavailable, intercept init fails.
+
+endchoice
+
 endif
