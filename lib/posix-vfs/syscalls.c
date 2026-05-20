@@ -223,7 +223,12 @@ UK_SYSCALL_R_DEFINE(int, newfstatat, int, dfd, const char *, path,
 		    struct stat *, st, int, flags)
 {
 	struct uk_ofile *of;
-	int ret = _vfs_atfd(dfd, path, &of);
+	int ret = uk_intercept_newfstatat(dfd, path, st, flags);
+
+	if (ret != -ENOTSUP)
+		return ret;
+
+	ret = _vfs_atfd(dfd, path, &of);
 
 	if (unlikely(ret))
 		return ret;

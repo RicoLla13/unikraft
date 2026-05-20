@@ -19,6 +19,8 @@ int uk_intercept_access(const char *path, int mode);
 int uk_intercept_openat(int dfd, const char *path, int flags, mode_t mode);
 int uk_intercept_close(int fd);
 int uk_intercept_fstat(int fd, struct stat *statbuf);
+int uk_intercept_newfstatat(int dfd, const char *path, struct stat *statbuf,
+			    int flags);
 ssize_t uk_intercept_read(int fd, void *buf, size_t count);
 ssize_t uk_intercept_write(int fd, const void *buf, size_t count);
 #else
@@ -46,6 +48,14 @@ static inline int uk_intercept_close(int fd __unused)
 
 static inline int uk_intercept_fstat(int fd __unused,
 				     struct stat *statbuf __unused)
+{
+	return -ENOTSUP;
+}
+
+static inline int uk_intercept_newfstatat(int dfd __unused,
+					  const char *path __unused,
+					  struct stat *statbuf __unused,
+					  int flags __unused)
 {
 	return -ENOTSUP;
 }

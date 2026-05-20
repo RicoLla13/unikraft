@@ -163,6 +163,35 @@ int uk_intercept_fstat(int fd, struct stat *statbuf)
 	return ret;
 }
 
+int uk_intercept_newfstatat(int dfd, const char *path, struct stat *statbuf,
+			    int flags)
+{
+	int saved_errno;
+	int remote_dfd;
+	int ret;
+
+	if (!intercept_ready)
+		return -ENOTSUP;
+
+	if (!path || !statbuf)
+		return -EFAULT;
+
+	/*
+	 * Absolute paths do not consult dirfd. Relative paths may only use
+	 * AT_FDCWD or a descriptor previously returned by the intercept layer.
+	 */
+	remote_dfd = (path[0] == '/') ? AT_FDCWD : dfd;
+	if (remote_dfd != AT_FDCWD && !uk_intercept_is_remote_fd(remote_dfd))
+		return -EBADF;
+
+	saved_errno = errno;
+	ret = uk_intercept_rpc_newfstatat(remote_dfd, path, statbuf, flags);
+	if (ret >= 0)
+		errno = saved_errno;
+
+	return ret;
+}
+
 ssize_t uk_intercept_read(int fd, void *buf, size_t count)
 {
 	int saved_errno;
