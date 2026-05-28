@@ -51,6 +51,7 @@ int uk_intercept_rpc_fstat(int fd, struct stat *statbuf);
 int uk_intercept_rpc_newfstatat(int dfd, const char *path,
 				struct stat *statbuf, int flags);
 off_t uk_intercept_rpc_lseek(int fd, off_t offset, int whence);
+ssize_t uk_intercept_rpc_pread(int fd, void *buf, size_t count, off_t offset);
 ssize_t uk_intercept_rpc_read(int fd, void *buf, size_t count);
 ssize_t uk_intercept_rpc_write(int fd, const void *buf, size_t count);
 

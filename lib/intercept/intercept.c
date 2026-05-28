@@ -378,6 +378,30 @@ off_t uk_intercept_lseek(int fd, off_t offset, int whence)
 	return ret;
 }
 
+ssize_t uk_intercept_pread(int fd, void *buf, size_t count, off_t offset)
+{
+	const struct uk_intercept_fd_entry *entry;
+	int saved_errno;
+	ssize_t ret;
+
+	if (!intercept_ready)
+		return -ENOTSUP;
+
+	entry = uk_intercept_fdtab_get_const(fd);
+	if (!entry)
+		return -ENOTSUP;
+
+	if (!buf && count)
+		return -EFAULT;
+
+	saved_errno = errno;
+	ret = uk_intercept_rpc_pread(entry->remote_fd, buf, count, offset);
+	if (ret >= 0)
+		errno = saved_errno;
+
+	return ret;
+}
+
 ssize_t uk_intercept_read(int fd, void *buf, size_t count)
 {
 	const struct uk_intercept_fd_entry *entry;

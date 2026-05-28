@@ -85,6 +85,10 @@ UK_SYSCALL_R_DEFINE(ssize_t, pread64, int, fd,
 	ssize_t r;
 	union uk_shim_file sf;
 
+	r = uk_intercept_pread(fd, buf, count, offset);
+	if (r != -ENOTSUP)
+		return r;
+
 	switch (uk_fdtab_shim_get(fd, &sf)) {
 	case UK_SHIM_OFILE:
 		r = uk_sys_pread(sf.ofile, buf, count, offset);

@@ -22,6 +22,7 @@ int uk_intercept_fstat(int fd, struct stat *statbuf);
 int uk_intercept_newfstatat(int dfd, const char *path, struct stat *statbuf,
 			    int flags);
 off_t uk_intercept_lseek(int fd, off_t offset, int whence);
+ssize_t uk_intercept_pread(int fd, void *buf, size_t count, off_t offset);
 ssize_t uk_intercept_read(int fd, void *buf, size_t count);
 ssize_t uk_intercept_write(int fd, const void *buf, size_t count);
 #else
@@ -63,6 +64,13 @@ static inline int uk_intercept_newfstatat(int dfd __unused,
 
 static inline off_t uk_intercept_lseek(int fd __unused, off_t offset __unused,
 				       int whence __unused)
+{
+	return -ENOTSUP;
+}
+
+static inline ssize_t uk_intercept_pread(int fd __unused, void *buf __unused,
+					 size_t count __unused,
+					 off_t offset __unused)
 {
 	return -ENOTSUP;
 }
