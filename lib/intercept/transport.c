@@ -18,7 +18,7 @@
 static int intercept_transport_fd = -1;
 static bool intercept_transport_connected;
 
-static void uk_intercept_transport_reset(void)
+void uk_intercept_transport_reset(void)
 {
 	uk_pr_info("intercept: transport reset (fd=%d connected=%d)\n",
 		   intercept_transport_fd, intercept_transport_connected);

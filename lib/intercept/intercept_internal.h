@@ -25,6 +25,7 @@ struct uk_intercept_fd_entry {
 /* Transport lifecycle and blocking I/O helpers used by the RPC layer. */
 void uk_intercept_transport_init(void);
 void uk_intercept_transport_term(void);
+void uk_intercept_transport_reset(void);
 int uk_intercept_transport_connect(void);
 ssize_t uk_intercept_transport_send(const void *buf, size_t len);
 ssize_t uk_intercept_transport_recv_exact(void *buf, size_t len);

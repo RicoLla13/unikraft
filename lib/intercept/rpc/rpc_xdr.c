@@ -70,6 +70,80 @@ int rpc_decode_u64(struct rpc_decode_cursor *cursor, uint64_t *value)
 	return 0;
 }
 
+int rpc_decode_stat_payload(struct rpc_decode_cursor *cursor,
+			    struct rpc_stat_payload *payload)
+{
+	uint32_t value32;
+	int rc;
+
+	rc = rpc_decode_u32(cursor, &value32);
+	if (rc < 0)
+		return rc;
+	payload->result = (int)value32;
+
+	rc = rpc_decode_u32(cursor, &value32);
+	if (rc < 0)
+		return rc;
+	payload->err = (int)value32;
+
+	rc = rpc_decode_u32(cursor, &payload->dev);
+	if (rc < 0)
+		return rc;
+	rc = rpc_decode_u32(cursor, &payload->ino);
+	if (rc < 0)
+		return rc;
+	rc = rpc_decode_u32(cursor, &payload->mode);
+	if (rc < 0)
+		return rc;
+	rc = rpc_decode_u32(cursor, &payload->nlink);
+	if (rc < 0)
+		return rc;
+	rc = rpc_decode_u32(cursor, &payload->uid);
+	if (rc < 0)
+		return rc;
+	rc = rpc_decode_u32(cursor, &payload->gid);
+	if (rc < 0)
+		return rc;
+	rc = rpc_decode_u32(cursor, &payload->rdev);
+	if (rc < 0)
+		return rc;
+	rc = rpc_decode_u64(cursor, &payload->size);
+	if (rc < 0)
+		return rc;
+	rc = rpc_decode_u32(cursor, &payload->blksize);
+	if (rc < 0)
+		return rc;
+	rc = rpc_decode_u64(cursor, &payload->blocks);
+	if (rc < 0)
+		return rc;
+	rc = rpc_decode_u32(cursor, &payload->atime);
+	if (rc < 0)
+		return rc;
+	rc = rpc_decode_u32(cursor, &payload->mtime);
+	if (rc < 0)
+		return rc;
+	return rpc_decode_u32(cursor, &payload->ctime);
+}
+
+void rpc_apply_stat_payload(struct stat *statbuf,
+			    const struct rpc_stat_payload *payload)
+{
+	memset(statbuf, 0, sizeof(*statbuf));
+	statbuf->st_dev = (dev_t)payload->dev;
+	statbuf->st_ino = (ino_t)payload->ino;
+	statbuf->st_mode = (mode_t)payload->mode;
+	statbuf->st_nlink = (nlink_t)payload->nlink;
+	statbuf->st_uid = (uid_t)payload->uid;
+	statbuf->st_gid = (gid_t)payload->gid;
+	statbuf->st_rdev = (dev_t)payload->rdev;
+	statbuf->st_size = (off_t)payload->size;
+	statbuf->st_blksize = (blksize_t)payload->blksize;
+	statbuf->st_blocks = (blkcnt_t)payload->blocks;
+	statbuf->st_atim.tv_sec = (time_t)payload->atime;
+	statbuf->st_mtim.tv_sec = (time_t)payload->mtime;
+	statbuf->st_ctim.tv_sec = (time_t)payload->ctime;
+}
+
 int rpc_put_opaque(uint8_t **p, const uint8_t *end, const void *data, size_t len)
 {
 	size_t pad = (4 - (len & 3)) & 3;

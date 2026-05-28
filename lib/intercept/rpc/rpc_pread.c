@@ -30,8 +30,8 @@ static int rpc_encode_pread_request(struct rpc_encode_cursor *cursor,
 	int32_t offset32;
 	int rc;
 
-	if (req->count > UINT32_MAX)
-		return -EINVAL;
+	if (req->count > UK_INTERCEPT_RPC_MAX_READ_COUNT)
+		return -EMSGSIZE;
 	if (req->offset < 0 || req->offset > INT32_MAX)
 		return -EOVERFLOW;
 

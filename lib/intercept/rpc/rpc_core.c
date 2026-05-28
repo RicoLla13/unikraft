@@ -15,6 +15,12 @@
  */
 static uint32_t rpc_xid = 1;
 
+static int rpc_fail_and_reset(int rc)
+{
+	uk_intercept_transport_reset();
+	return rc;
+}
+
 static int rpc_put_call_header(struct rpc_encode_cursor *cursor,
 			       uint32_t xid, uint32_t proc)
 {
@@ -72,12 +78,12 @@ static int rpc_read_accepted_reply(uint32_t xid, uint8_t *buf, size_t cap,
 	marker = ntohl(marker);
 	if (!(marker & RPC_LAST_FRAGMENT)) {
 		uk_pr_err("intercept-rpc: multi-fragment replies unsupported\n");
-		return -ENOTSUP;
+		return rpc_fail_and_reset(-ENOTSUP);
 	}
 
 	len = marker & ~RPC_LAST_FRAGMENT;
 	if (len > cap)
-		return -EMSGSIZE;
+		return rpc_fail_and_reset(-EMSGSIZE);
 
 	rc = uk_intercept_transport_recv_exact(buf, len);
 	if (rc < 0)
@@ -89,31 +95,31 @@ static int rpc_read_accepted_reply(uint32_t xid, uint8_t *buf, size_t cap,
 
 	rc = rpc_decode_u32(&decode, &reply_xid);
 	if (rc < 0)
-		return rc;
+		return rpc_fail_and_reset(rc);
 	rc = rpc_decode_u32(&decode, &msg_type);
 	if (rc < 0)
-		return rc;
+		return rpc_fail_and_reset(rc);
 	rc = rpc_decode_u32(&decode, &reply_stat);
 	if (rc < 0)
-		return rc;
+		return rpc_fail_and_reset(rc);
 
 	if (reply_xid != xid || msg_type != RPC_REPLY ||
 	    reply_stat != RPC_MSG_ACCEPTED)
-		return -EPROTO;
+		return rpc_fail_and_reset(-EPROTO);
 
 	rc = rpc_decode_u32(&decode, &verf_flavor);
 	if (rc < 0)
-		return rc;
+		return rpc_fail_and_reset(rc);
 	if (verf_flavor != RPC_AUTH_NONE)
-		return -EPROTO;
+		return rpc_fail_and_reset(-EPROTO);
 	rc = rpc_skip_opaque(&decode.p, decode.end);
 	if (rc < 0)
-		return rc;
+		return rpc_fail_and_reset(rc);
 	rc = rpc_decode_u32(&decode, &accept_stat);
 	if (rc < 0)
-		return rc;
+		return rpc_fail_and_reset(rc);
 	if (accept_stat != RPC_SUCCESS)
-		return -EPROTO;
+		return rpc_fail_and_reset(-EPROTO);
 
 	cursor->p = decode.p;
 
@@ -157,10 +163,10 @@ int rpc_call(uint32_t proc, rpc_encode_fn_t encode, const void *arg,
 
 	rc = decode(&resp_cursor, resp);
 	if (rc < 0)
-		return rc;
+		return rpc_fail_and_reset(rc);
 
 	if (resp_cursor.p != resp_cursor.end)
-		return -EPROTO;
+		return rpc_fail_and_reset(-EPROTO);
 
 	return 0;
 }

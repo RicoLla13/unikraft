@@ -28,8 +28,8 @@ static int rpc_encode_read_request(struct rpc_encode_cursor *cursor,
 	uint32_t count;
 	int rc;
 
-	if (req->count > UINT32_MAX)
-		return -EINVAL;
+	if (req->count > UK_INTERCEPT_RPC_MAX_READ_COUNT)
+		return -EMSGSIZE;
 
 	count = (uint32_t)req->count;
 

@@ -25,8 +25,8 @@ static int rpc_encode_write_request(struct rpc_encode_cursor *cursor,
 	const struct rpc_write_request *req = arg;
 	int rc;
 
-	if (req->count > UINT32_MAX)
-		return -EINVAL;
+	if (req->count > UK_INTERCEPT_RPC_MAX_WRITE_COUNT)
+		return -EMSGSIZE;
 
 	rc = rpc_encode_u32(cursor, (uint32_t)req->fd);
 	if (rc < 0)
