@@ -355,6 +355,29 @@ int uk_intercept_newfstatat(int dfd, const char *path, struct stat *statbuf,
 	return ret;
 }
 
+off_t uk_intercept_lseek(int fd, off_t offset, int whence)
+{
+	struct uk_intercept_fd_entry *entry;
+	int saved_errno;
+	off_t ret;
+
+	if (!intercept_ready)
+		return -ENOTSUP;
+
+	entry = uk_intercept_fdtab_get(fd);
+	if (!entry)
+		return -ENOTSUP;
+
+	saved_errno = errno;
+	ret = uk_intercept_rpc_lseek(entry->remote_fd, offset, whence);
+	if (ret >= 0) {
+		entry->cached_offset = ret;
+		errno = saved_errno;
+	}
+
+	return ret;
+}
+
 ssize_t uk_intercept_read(int fd, void *buf, size_t count)
 {
 	const struct uk_intercept_fd_entry *entry;

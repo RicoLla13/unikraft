@@ -37,6 +37,17 @@ int rpc_encode_u32(struct rpc_encode_cursor *cursor, uint32_t value)
 	return rpc_put_u32(&cursor->p, cursor->end, value);
 }
 
+int rpc_encode_u64(struct rpc_encode_cursor *cursor, uint64_t value)
+{
+	int rc;
+
+	rc = rpc_put_u32(&cursor->p, cursor->end, (uint32_t)(value >> 32));
+	if (rc < 0)
+		return rc;
+
+	return rpc_put_u32(&cursor->p, cursor->end, (uint32_t)value);
+}
+
 int rpc_decode_u32(struct rpc_decode_cursor *cursor, uint32_t *value)
 {
 	return rpc_get_u32(&cursor->p, cursor->end, value);

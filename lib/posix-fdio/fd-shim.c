@@ -293,6 +293,10 @@ UK_SYSCALL_R_DEFINE(off_t, lseek, int, fd, off_t, offset, int, whence)
 	off_t r;
 	union uk_shim_file sf;
 
+	r = uk_intercept_lseek(fd, offset, whence);
+	if (r != -ENOTSUP)
+		return r;
+
 	switch (uk_fdtab_shim_get(fd, &sf)) {
 	case UK_SHIM_OFILE:
 		r = uk_sys_lseek(sf.ofile, offset, whence);

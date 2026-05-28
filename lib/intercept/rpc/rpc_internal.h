@@ -25,6 +25,7 @@
 #define SYSCALL_WRITE 6U
 #define SYSCALL_NEWFSTATAT 9U
 #define SYSCALL_FSTAT 10U
+#define SYSCALL_LSEEK 13U
 #define SYSCALL_ACCESS 14U
 
 struct rpc_encode_cursor {
@@ -42,6 +43,7 @@ typedef int (*rpc_encode_fn_t)(struct rpc_encode_cursor *cursor,
 typedef int (*rpc_decode_fn_t)(struct rpc_decode_cursor *cursor, void *resp);
 
 int rpc_encode_u32(struct rpc_encode_cursor *cursor, uint32_t value);
+int rpc_encode_u64(struct rpc_encode_cursor *cursor, uint64_t value);
 int rpc_decode_u32(struct rpc_decode_cursor *cursor, uint32_t *value);
 int rpc_decode_u64(struct rpc_decode_cursor *cursor, uint64_t *value);
 int rpc_put_opaque(uint8_t **p, const uint8_t *end, const void *data,
