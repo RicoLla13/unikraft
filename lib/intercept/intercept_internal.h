@@ -38,6 +38,8 @@ bool uk_intercept_fdtab_contains(int fd);
 bool uk_intercept_fdtab_is_remote_dir(int fd);
 int uk_intercept_fdtab_register(int guest_fd, int remote_fd, int flags,
 				mode_t mode);
+int uk_intercept_fdtab_set_backend(int guest_fd,
+				   enum uk_intercept_fd_backend backend);
 void uk_intercept_fdtab_unregister(int guest_fd);
 
 /* Per-syscall RPC entry points. */

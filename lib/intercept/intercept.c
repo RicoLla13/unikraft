@@ -29,6 +29,13 @@ static enum uk_intercept_fd_backend uk_intercept_classify_backend(int flags)
 				     : UK_INTERCEPT_FD_REMOTE_FILE;
 }
 
+static enum uk_intercept_fd_backend
+uk_intercept_classify_backend_from_mode(mode_t st_mode)
+{
+	return S_ISDIR(st_mode) ? UK_INTERCEPT_FD_REMOTE_DIR
+				: UK_INTERCEPT_FD_REMOTE_FILE;
+}
+
 static bool uk_intercept_local_fd_in_use(int fd)
 {
 	struct uk_ofile *of;
@@ -117,6 +124,19 @@ int uk_intercept_fdtab_register(int guest_fd, int remote_fd, int flags,
 	return 0;
 }
 
+int uk_intercept_fdtab_set_backend(int guest_fd,
+				   enum uk_intercept_fd_backend backend)
+{
+	struct uk_intercept_fd_entry *entry;
+
+	entry = uk_intercept_fdtab_get(guest_fd);
+	if (!entry)
+		return -EBADF;
+
+	entry->backend = backend;
+	return 0;
+}
+
 void uk_intercept_fdtab_unregister(int guest_fd)
 {
 	if (!uk_intercept_fd_in_range(guest_fd))
@@ -143,12 +163,9 @@ static int uk_intercept_resolve_remote_dfd(int dfd, const char *path)
 	if (!entry)
 		return -EBADF;
 
-	/*
-	 * The current table does not yet carry authoritative file type
-	 * information from the server. Keep the backend tag for future
-	 * dispatch, but let the server remain the source of truth for
-	 * whether a tracked remote fd can act as a dirfd.
-	 */
+	if (entry->backend != UK_INTERCEPT_FD_REMOTE_DIR)
+		return -ENOTDIR;
+
 	return entry->remote_fd;
 }
 
@@ -213,6 +230,7 @@ int uk_intercept_access(const char *path, int mode)
 
 int uk_intercept_openat(int dfd, const char *path, int flags, mode_t mode)
 {
+	struct stat statbuf;
 	int guest_fd;
 	int saved_errno;
 	int remote_dfd;
@@ -242,6 +260,21 @@ int uk_intercept_openat(int dfd, const char *path, int flags, mode_t mode)
 
 	rc = uk_intercept_fdtab_register(guest_fd, ret, flags, mode);
 	if (rc < 0) {
+		(void) uk_intercept_rpc_close(ret);
+		return rc;
+	}
+
+	rc = uk_intercept_rpc_fstat(ret, &statbuf);
+	if (rc < 0) {
+		uk_intercept_fdtab_unregister(guest_fd);
+		(void) uk_intercept_rpc_close(ret);
+		return rc;
+	}
+
+	rc = uk_intercept_fdtab_set_backend(
+		guest_fd, uk_intercept_classify_backend_from_mode(statbuf.st_mode));
+	if (rc < 0) {
+		uk_intercept_fdtab_unregister(guest_fd);
 		(void) uk_intercept_rpc_close(ret);
 		return rc;
 	}
