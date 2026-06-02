@@ -41,8 +41,13 @@
 #define SYSCALL_WRITE 6U
 #define SYSCALL_NEWFSTATAT 9U
 #define SYSCALL_FSTAT 10U
+#define SYSCALL_FCNTL 11U
 #define SYSCALL_LSEEK 13U
 #define SYSCALL_ACCESS 14U
+
+#define FCNTL_ARG_NONE 0U
+#define FCNTL_ARG_INT 1U
+#define FCNTL_ARG_FLOCK 2U
 
 struct rpc_encode_cursor {
 	uint8_t *p;

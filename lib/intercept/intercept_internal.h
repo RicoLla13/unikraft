@@ -18,6 +18,7 @@ struct uk_intercept_fd_entry {
 	enum uk_intercept_fd_backend backend;
 	int remote_fd;
 	int flags;
+	int fdflags;
 	mode_t mode;
 	off_t cached_offset;
 };
@@ -48,6 +49,8 @@ int uk_intercept_rpc_probe(void);
 int uk_intercept_rpc_access(const char *path, int mode);
 int uk_intercept_rpc_openat(int dfd, const char *path, int flags, mode_t mode);
 int uk_intercept_rpc_close(int fd);
+int uk_intercept_rpc_fcntl(int fd, int cmd, unsigned long arg,
+			   unsigned long *arg_out);
 int uk_intercept_rpc_fstat(int fd, struct stat *statbuf);
 int uk_intercept_rpc_newfstatat(int dfd, const char *path,
 				struct stat *statbuf, int flags);

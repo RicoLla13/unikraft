@@ -3,6 +3,7 @@
 #define __UK_INTERCEPT_H__
 
 #include <errno.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -18,6 +19,7 @@ int uk_intercept_boot_init(struct uk_init_ctx *ictx);
 int uk_intercept_access(const char *path, int mode);
 int uk_intercept_openat(int dfd, const char *path, int flags, mode_t mode);
 int uk_intercept_close(int fd);
+int uk_intercept_fcntl(int fd, int cmd, unsigned long arg);
 int uk_intercept_fstat(int fd, struct stat *statbuf);
 int uk_intercept_newfstatat(int dfd, const char *path, struct stat *statbuf,
 			    int flags);
@@ -44,6 +46,12 @@ static inline int uk_intercept_openat(int dfd __unused, const char *path __unuse
 }
 
 static inline int uk_intercept_close(int fd __unused)
+{
+	return -ENOTSUP;
+}
+
+static inline int uk_intercept_fcntl(int fd __unused, int cmd __unused,
+				     unsigned long arg __unused)
 {
 	return -ENOTSUP;
 }

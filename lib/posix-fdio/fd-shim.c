@@ -538,6 +538,11 @@ UK_LLSYSCALL_R_DEFINE(int, fcntl, int, fd,
 		      unsigned int, cmd, unsigned long, arg)
 {
 	int fdflags = 0;
+	int r;
+
+	r = uk_intercept_fcntl(fd, cmd, arg);
+	if (r != -ENOTSUP)
+		return r;
 
 	switch (cmd) {
 	case F_DUPFD_CLOEXEC:
@@ -555,7 +560,6 @@ UK_LLSYSCALL_R_DEFINE(int, fcntl, int, fd,
 			((int)arg & FD_CLOEXEC) ? O_CLOEXEC : 0);
 	default:
 	{
-		int r;
 		union uk_shim_file sf;
 
 		switch (uk_fdtab_shim_get(fd, &sf)) {

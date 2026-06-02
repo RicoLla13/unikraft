@@ -13,6 +13,28 @@
 
 #define UK_INTERCEPT_REMOTE_FD_MAX CONFIG_LIBPOSIX_FDTAB_MAXFDS
 
+#define UK_INTERCEPT_FCNTL_SETFL_MASK_BASE (O_APPEND | O_NONBLOCK)
+#ifdef O_ASYNC
+#define UK_INTERCEPT_FCNTL_SETFL_MASK_ASYNC O_ASYNC
+#else
+#define UK_INTERCEPT_FCNTL_SETFL_MASK_ASYNC 0
+#endif
+#ifdef O_DIRECT
+#define UK_INTERCEPT_FCNTL_SETFL_MASK_DIRECT O_DIRECT
+#else
+#define UK_INTERCEPT_FCNTL_SETFL_MASK_DIRECT 0
+#endif
+#ifdef O_NOATIME
+#define UK_INTERCEPT_FCNTL_SETFL_MASK_NOATIME O_NOATIME
+#else
+#define UK_INTERCEPT_FCNTL_SETFL_MASK_NOATIME 0
+#endif
+#define UK_INTERCEPT_FCNTL_SETFL_MASK \
+	(UK_INTERCEPT_FCNTL_SETFL_MASK_BASE | \
+	 UK_INTERCEPT_FCNTL_SETFL_MASK_ASYNC | \
+	 UK_INTERCEPT_FCNTL_SETFL_MASK_DIRECT | \
+	 UK_INTERCEPT_FCNTL_SETFL_MASK_NOATIME)
+
 /* Set once the transport side has been initialized during boot. */
 static int intercept_ready;
 static struct uk_intercept_fd_entry
@@ -48,11 +70,14 @@ static bool uk_intercept_local_fd_in_use(int fd)
 	return true;
 }
 
-static int uk_intercept_fdtab_alloc_guest_fd(void)
+static int uk_intercept_fdtab_alloc_guest_fd_from(int min_fd)
 {
 	int fd;
 
-	for (fd = 0; fd < UK_INTERCEPT_REMOTE_FD_MAX; ++fd) {
+	if (min_fd < 0)
+		min_fd = 0;
+
+	for (fd = min_fd; fd < UK_INTERCEPT_REMOTE_FD_MAX; ++fd) {
 		if (uk_intercept_fdtab_contains(fd))
 			continue;
 		if (uk_intercept_local_fd_in_use(fd))
@@ -62,6 +87,11 @@ static int uk_intercept_fdtab_alloc_guest_fd(void)
 	}
 
 	return -EMFILE;
+}
+
+static int uk_intercept_fdtab_alloc_guest_fd(void)
+{
+	return uk_intercept_fdtab_alloc_guest_fd_from(0);
 }
 
 void uk_intercept_fdtab_init(void)
@@ -118,6 +148,7 @@ int uk_intercept_fdtab_register(int guest_fd, int remote_fd, int flags,
 	entry->backend = uk_intercept_classify_backend(flags);
 	entry->remote_fd = remote_fd;
 	entry->flags = flags;
+	entry->fdflags = flags & O_CLOEXEC;
 	entry->mode = mode;
 	entry->cached_offset = 0;
 
@@ -328,6 +359,107 @@ int uk_intercept_fstat(int fd, struct stat *statbuf)
 		errno = saved_errno;
 
 	return ret;
+}
+
+int uk_intercept_fcntl(int fd, int cmd, unsigned long arg)
+{
+	struct uk_intercept_fd_entry *entry;
+	unsigned long rpc_arg_out = arg;
+	int saved_errno;
+	int ret;
+	int guest_fd;
+	int rc;
+
+	if (!intercept_ready)
+		return -ENOTSUP;
+
+	entry = uk_intercept_fdtab_get(fd);
+	if (!entry)
+		return -ENOTSUP;
+
+	switch (cmd) {
+	case F_GETFD:
+		return (entry->fdflags & O_CLOEXEC) ? FD_CLOEXEC : 0;
+	case F_SETFD:
+		entry->fdflags = ((int)arg & FD_CLOEXEC) ? O_CLOEXEC : 0;
+		return 0;
+	case F_DUPFD:
+#ifdef F_DUPFD_CLOEXEC
+	case F_DUPFD_CLOEXEC:
+#endif
+		break;
+	case F_GETFL:
+	case F_SETFL:
+		break;
+	case F_GETLK:
+	case F_SETLK:
+	case F_SETLKW:
+		if (!arg)
+			return -EFAULT;
+		break;
+	default:
+		break;
+	}
+
+	saved_errno = errno;
+	ret = uk_intercept_rpc_fcntl(entry->remote_fd, cmd, arg, &rpc_arg_out);
+	if (ret < 0)
+		return ret;
+
+	switch (cmd) {
+	case F_GETFL:
+		errno = saved_errno;
+		return (entry->flags & ~O_CLOEXEC);
+	case F_SETFL:
+		entry->flags &= ~UK_INTERCEPT_FCNTL_SETFL_MASK;
+		entry->flags |= (int)arg & UK_INTERCEPT_FCNTL_SETFL_MASK;
+		errno = saved_errno;
+		return ret;
+	case F_DUPFD:
+#ifdef F_DUPFD_CLOEXEC
+	case F_DUPFD_CLOEXEC:
+#endif
+		guest_fd = uk_intercept_fdtab_alloc_guest_fd_from((int)arg);
+		if (guest_fd < 0) {
+			(void) uk_intercept_rpc_close(ret);
+			return guest_fd;
+		}
+
+		rc = uk_intercept_fdtab_register(guest_fd, ret, entry->flags,
+						 entry->mode);
+		if (rc < 0) {
+			(void) uk_intercept_rpc_close(ret);
+			return rc;
+		}
+		rc = uk_intercept_fdtab_set_backend(guest_fd, entry->backend);
+		if (rc < 0) {
+			uk_intercept_fdtab_unregister(guest_fd);
+			(void) uk_intercept_rpc_close(ret);
+			return rc;
+		}
+		{
+			struct uk_intercept_fd_entry *new_entry =
+				uk_intercept_fdtab_get(guest_fd);
+
+			if (!new_entry) {
+				uk_intercept_fdtab_unregister(guest_fd);
+				(void) uk_intercept_rpc_close(ret);
+				return -EBADF;
+			}
+			new_entry->cached_offset = entry->cached_offset;
+#ifdef F_DUPFD_CLOEXEC
+			new_entry->fdflags = (cmd == F_DUPFD_CLOEXEC) ?
+				O_CLOEXEC : 0;
+#else
+			new_entry->fdflags = 0;
+#endif
+		}
+		errno = saved_errno;
+		return guest_fd;
+	default:
+		errno = saved_errno;
+		return ret;
+	}
 }
 
 int uk_intercept_newfstatat(int dfd, const char *path, struct stat *statbuf,
