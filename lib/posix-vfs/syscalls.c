@@ -256,6 +256,11 @@ __alias(newfstatat, fstatat64);
 
 UK_SYSCALL_R_DEFINE(int, stat, const char *, path, struct stat *, st)
 {
+	int ret = uk_intercept_stat(path, st);
+
+	if (ret != -ENOTSUP)
+		return ret;
+
 	return uk_sys_stat(path, st);
 }
 
@@ -269,6 +274,11 @@ __alias(stat, stat64);
 
 UK_SYSCALL_R_DEFINE(int, lstat, const char *, path, struct stat *, st)
 {
+	int ret = uk_intercept_lstat(path, st);
+
+	if (ret != -ENOTSUP)
+		return ret;
+
 	return uk_sys_lstat(path, st);
 }
 
@@ -688,9 +698,15 @@ __alias(openat, openat64);
 
 UK_LLSYSCALL_R_DEFINE(int, open, const char *, path, int, flags, mode_t, mode)
 {
-	struct uk_ofile *newf = uk_sys_open(path, flags, mode);
+	struct uk_ofile *newf;
+	int ret;
 	int fd;
 
+	ret = uk_intercept_open(path, flags, mode);
+	if (ret != -ENOTSUP)
+		return ret;
+
+	newf = uk_sys_open(path, flags, mode);
 	if (unlikely(PTRISERR(newf)))
 		return PTR2ERR(newf);
 	fd = uk_fdtab_open_desc(newf, flags);

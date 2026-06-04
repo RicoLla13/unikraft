@@ -259,6 +259,11 @@ int uk_intercept_access(const char *path, int mode)
 	return ret;
 }
 
+int uk_intercept_open(const char *path, int flags, mode_t mode)
+{
+	return uk_intercept_openat(AT_FDCWD, path, flags, mode);
+}
+
 int uk_intercept_openat(int dfd, const char *path, int flags, mode_t mode)
 {
 	struct stat statbuf;
@@ -485,6 +490,17 @@ int uk_intercept_newfstatat(int dfd, const char *path, struct stat *statbuf,
 		errno = saved_errno;
 
 	return ret;
+}
+
+int uk_intercept_stat(const char *path, struct stat *statbuf)
+{
+	return uk_intercept_newfstatat(AT_FDCWD, path, statbuf, 0);
+}
+
+int uk_intercept_lstat(const char *path, struct stat *statbuf)
+{
+	return uk_intercept_newfstatat(AT_FDCWD, path, statbuf,
+				       AT_SYMLINK_NOFOLLOW);
 }
 
 off_t uk_intercept_lseek(int fd, off_t offset, int whence)
