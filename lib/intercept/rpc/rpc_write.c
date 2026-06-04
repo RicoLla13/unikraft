@@ -31,7 +31,7 @@ static int rpc_encode_write_request(struct rpc_encode_cursor *cursor,
 	rc = rpc_encode_u32(cursor, (uint32_t)req->fd);
 	if (rc < 0)
 		return rc;
-	return rpc_put_opaque(&cursor->p, cursor->end, req->buf, req->count);
+	return rpc_encode_opaque(cursor, req->buf, req->count);
 }
 
 static int rpc_decode_write_response(struct rpc_decode_cursor *cursor,

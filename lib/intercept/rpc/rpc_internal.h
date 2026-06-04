@@ -89,9 +89,9 @@ int rpc_decode_stat_payload(struct rpc_decode_cursor *cursor,
 			    struct rpc_stat_payload *payload);
 void rpc_apply_stat_payload(struct stat *statbuf,
 			    const struct rpc_stat_payload *payload);
-int rpc_put_opaque(uint8_t **p, const uint8_t *end, const void *data,
-		   size_t len);
-int rpc_skip_opaque(const uint8_t **p, const uint8_t *end);
+int rpc_encode_opaque(struct rpc_encode_cursor *cursor, const void *data,
+		      size_t len);
+int rpc_skip_opaque(struct rpc_decode_cursor *cursor);
 int rpc_decode_opaque(struct rpc_decode_cursor *cursor, const uint8_t **data,
 		      size_t *len);
 size_t rpc_path_len(const char *path);

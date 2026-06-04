@@ -112,7 +112,7 @@ static int rpc_read_accepted_reply(uint32_t xid, uint8_t *buf, size_t cap,
 		return rpc_fail_and_reset(rc);
 	if (verf_flavor != RPC_AUTH_NONE)
 		return rpc_fail_and_reset(-EPROTO);
-	rc = rpc_skip_opaque(&decode.p, decode.end);
+	rc = rpc_skip_opaque(&decode);
 	if (rc < 0)
 		return rpc_fail_and_reset(rc);
 	rc = rpc_decode_u32(&decode, &accept_stat);

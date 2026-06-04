@@ -6,51 +6,41 @@
 
 #include "rpc_internal.h"
 
-static int rpc_put_u32(uint8_t **p, const uint8_t *end, uint32_t value)
+int rpc_encode_u32(struct rpc_encode_cursor *cursor, uint32_t value)
 {
 	uint32_t be;
 
-	if ((size_t)(end - *p) < sizeof(be))
+	if ((size_t)(cursor->end - cursor->p) < sizeof(be))
 		return -EMSGSIZE;
 
 	be = htonl(value);
-	memcpy(*p, &be, sizeof(be));
-	*p += sizeof(be);
+	memcpy(cursor->p, &be, sizeof(be));
+	cursor->p += sizeof(be);
 	return 0;
-}
-
-static int rpc_get_u32(const uint8_t **p, const uint8_t *end, uint32_t *value)
-{
-	uint32_t be;
-
-	if ((size_t)(end - *p) < sizeof(be))
-		return -EINVAL;
-
-	memcpy(&be, *p, sizeof(be));
-	*value = ntohl(be);
-	*p += sizeof(be);
-	return 0;
-}
-
-int rpc_encode_u32(struct rpc_encode_cursor *cursor, uint32_t value)
-{
-	return rpc_put_u32(&cursor->p, cursor->end, value);
 }
 
 int rpc_encode_u64(struct rpc_encode_cursor *cursor, uint64_t value)
 {
 	int rc;
 
-	rc = rpc_put_u32(&cursor->p, cursor->end, (uint32_t)(value >> 32));
+	rc = rpc_encode_u32(cursor, (uint32_t)(value >> 32));
 	if (rc < 0)
 		return rc;
 
-	return rpc_put_u32(&cursor->p, cursor->end, (uint32_t)value);
+	return rpc_encode_u32(cursor, (uint32_t)value);
 }
 
 int rpc_decode_u32(struct rpc_decode_cursor *cursor, uint32_t *value)
 {
-	return rpc_get_u32(&cursor->p, cursor->end, value);
+	uint32_t be;
+
+	if ((size_t)(cursor->end - cursor->p) < sizeof(be))
+		return -EINVAL;
+
+	memcpy(&be, cursor->p, sizeof(be));
+	*value = ntohl(be);
+	cursor->p += sizeof(be);
+	return 0;
 }
 
 int rpc_decode_u64(struct rpc_decode_cursor *cursor, uint64_t *value)
@@ -59,10 +49,10 @@ int rpc_decode_u64(struct rpc_decode_cursor *cursor, uint64_t *value)
 	uint32_t lo;
 	int rc;
 
-	rc = rpc_get_u32(&cursor->p, cursor->end, &hi);
+	rc = rpc_decode_u32(cursor, &hi);
 	if (rc < 0)
 		return rc;
-	rc = rpc_get_u32(&cursor->p, cursor->end, &lo);
+	rc = rpc_decode_u32(cursor, &lo);
 	if (rc < 0)
 		return rc;
 
@@ -144,40 +134,41 @@ void rpc_apply_stat_payload(struct stat *statbuf,
 	statbuf->st_ctim.tv_sec = (time_t)payload->ctime;
 }
 
-int rpc_put_opaque(uint8_t **p, const uint8_t *end, const void *data, size_t len)
+int rpc_encode_opaque(struct rpc_encode_cursor *cursor, const void *data,
+		      size_t len)
 {
 	size_t pad = (4 - (len & 3)) & 3;
 	int rc;
 
-	rc = rpc_put_u32(p, end, (uint32_t)len);
+	rc = rpc_encode_u32(cursor, (uint32_t)len);
 	if (rc < 0)
 		return rc;
 
-	if ((size_t)(end - *p) < len + pad)
+	if ((size_t)(cursor->end - cursor->p) < len + pad)
 		return -EMSGSIZE;
 
-	memcpy(*p, data, len);
-	*p += len;
-	memset(*p, 0, pad);
-	*p += pad;
+	memcpy(cursor->p, data, len);
+	cursor->p += len;
+	memset(cursor->p, 0, pad);
+	cursor->p += pad;
 	return 0;
 }
 
-int rpc_skip_opaque(const uint8_t **p, const uint8_t *end)
+int rpc_skip_opaque(struct rpc_decode_cursor *cursor)
 {
 	uint32_t len;
 	size_t total;
 	int rc;
 
-	rc = rpc_get_u32(p, end, &len);
+	rc = rpc_decode_u32(cursor, &len);
 	if (rc < 0)
 		return rc;
 
 	total = len + ((4 - (len & 3)) & 3);
-	if ((size_t)(end - *p) < total)
+	if ((size_t)(cursor->end - cursor->p) < total)
 		return -EINVAL;
 
-	*p += total;
+	cursor->p += total;
 	return 0;
 }
 
@@ -188,7 +179,7 @@ int rpc_decode_opaque(struct rpc_decode_cursor *cursor, const uint8_t **data,
 	size_t total;
 	int rc;
 
-	rc = rpc_get_u32(&cursor->p, cursor->end, &opaque_len);
+	rc = rpc_decode_u32(cursor, &opaque_len);
 	if (rc < 0)
 		return rc;
 

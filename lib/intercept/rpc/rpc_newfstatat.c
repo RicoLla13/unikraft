@@ -32,7 +32,7 @@ static int rpc_encode_newfstatat_request(struct rpc_encode_cursor *cursor,
 	rc = rpc_encode_u32(cursor, (uint32_t)req->dfd);
 	if (rc < 0)
 		return rc;
-	rc = rpc_put_opaque(&cursor->p, cursor->end, req->path, path_len);
+	rc = rpc_encode_opaque(cursor, req->path, path_len);
 	if (rc < 0)
 		return rc;
 	return rpc_encode_u32(cursor, (uint32_t)req->flags);

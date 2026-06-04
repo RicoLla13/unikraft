@@ -28,7 +28,7 @@ static int rpc_encode_access_request(struct rpc_encode_cursor *cursor,
 	if (path_len > UK_INTERCEPT_MAX_PATH_LEN)
 		return -ENAMETOOLONG;
 
-	rc = rpc_put_opaque(&cursor->p, cursor->end, req->path, path_len);
+	rc = rpc_encode_opaque(cursor, req->path, path_len);
 	if (rc < 0)
 		return rc;
 	return rpc_encode_u32(cursor, (uint32_t)req->mode);
