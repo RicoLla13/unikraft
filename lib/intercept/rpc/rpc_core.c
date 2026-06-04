@@ -67,30 +67,30 @@ static int rpc_read_accepted_reply(uint32_t xid, uint8_t *buf, size_t cap,
 	uint32_t reply_stat;
 	uint32_t verf_flavor;
 	uint32_t accept_stat;
-	size_t len;
+	size_t frag_len;
+	size_t total_len = 0;
 	struct rpc_decode_cursor decode;
 	int rc;
 
-	rc = uk_intercept_transport_recv_exact(&marker, sizeof(marker));
-	if (rc < 0)
-		return rc;
+	do {
+		rc = uk_intercept_transport_recv_exact(&marker, sizeof(marker));
+		if (rc < 0)
+			return rc;
 
-	marker = ntohl(marker);
-	if (!(marker & RPC_LAST_FRAGMENT)) {
-		uk_pr_err("intercept-rpc: multi-fragment replies unsupported\n");
-		return rpc_fail_and_reset(-ENOTSUP);
-	}
+		marker = ntohl(marker);
+		frag_len = marker & ~RPC_LAST_FRAGMENT;
+		if (frag_len > cap - total_len)
+			return rpc_fail_and_reset(-EMSGSIZE);
 
-	len = marker & ~RPC_LAST_FRAGMENT;
-	if (len > cap)
-		return rpc_fail_and_reset(-EMSGSIZE);
+		rc = uk_intercept_transport_recv_exact(buf + total_len, frag_len);
+		if (rc < 0)
+			return rc;
 
-	rc = uk_intercept_transport_recv_exact(buf, len);
-	if (rc < 0)
-		return rc;
+		total_len += frag_len;
+	} while (!(marker & RPC_LAST_FRAGMENT));
 
 	decode.p = buf;
-	cursor->end = buf + len;
+	cursor->end = buf + total_len;
 	decode.end = cursor->end;
 
 	rc = rpc_decode_u32(&decode, &reply_xid);
