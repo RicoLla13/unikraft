@@ -28,6 +28,7 @@ void uk_intercept_transport_init(void);
 void uk_intercept_transport_term(void);
 void uk_intercept_transport_reset(void);
 int uk_intercept_transport_connect(void);
+int uk_intercept_transport_fd(void);
 ssize_t uk_intercept_transport_send(const void *buf, size_t len);
 ssize_t uk_intercept_transport_recv_exact(void *buf, size_t len);
 

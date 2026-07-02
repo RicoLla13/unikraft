@@ -8,6 +8,7 @@
 
 #include "../intercept_internal.h"
 #include "rpc_internal.h"
+#include "../rpcgen/protocol.h"
 
 /*
  * Current RPC state is intentionally single-flight: one connected transport
@@ -118,7 +119,7 @@ static int rpc_read_accepted_reply(uint32_t xid, uint8_t *buf, size_t cap,
 	rc = rpc_decode_u32(&decode, &accept_stat);
 	if (rc < 0)
 		return rpc_fail_and_reset(rc);
-	if (accept_stat != RPC_SUCCESS)
+	if (accept_stat != RPC_ACCEPT_SUCCESS)
 		return rpc_fail_and_reset(-EPROTO);
 
 	cursor->p = decode.p;

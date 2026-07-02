@@ -81,6 +81,11 @@ int uk_intercept_transport_connect(void)
 	return 0;
 }
 
+int uk_intercept_transport_fd(void)
+{
+	return intercept_transport_connected ? intercept_transport_fd : -1;
+}
+
 /* Best-effort blocking send used by the request path. */
 static ssize_t uk_intercept_transport_send_all(int fd, const void *buf,
 					       size_t len)
@@ -189,6 +194,11 @@ void uk_intercept_transport_term(void) {}
 int uk_intercept_transport_connect(void)
 {
 	return -ENOTSUP;
+}
+
+int uk_intercept_transport_fd(void)
+{
+	return -1;
 }
 
 ssize_t uk_intercept_transport_send(const void *buf __unused,

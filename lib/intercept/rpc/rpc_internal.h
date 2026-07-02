@@ -15,7 +15,7 @@
 #define RPC_CALL 0U
 #define RPC_REPLY 1U
 #define RPC_MSG_ACCEPTED 0U
-#define RPC_SUCCESS 0U
+#define RPC_ACCEPT_SUCCESS 0U
 #define RPC_AUTH_NONE 0U
 #define RPC_CALL_HEADER_SIZE (10U * sizeof(uint32_t))
 #define RPC_ACCEPTED_REPLY_HEADER_SIZE (6U * sizeof(uint32_t))
@@ -31,23 +31,6 @@
 #define UK_INTERCEPT_RPC_MAX_WRITE_COUNT \
 	(UK_INTERCEPT_RPC_BUF_SIZE - RPC_CALL_HEADER_SIZE - \
 	 (2U * sizeof(uint32_t)))
-
-#define SYSCALL_PROG 0x20000001U
-#define SYSCALL_VERS 1U
-#define SYSCALL_OPENAT 2U
-#define SYSCALL_CLOSE 3U
-#define SYSCALL_READ 4U
-#define SYSCALL_PREAD 5U
-#define SYSCALL_WRITE 6U
-#define SYSCALL_NEWFSTATAT 9U
-#define SYSCALL_FSTAT 10U
-#define SYSCALL_FCNTL 11U
-#define SYSCALL_LSEEK 13U
-#define SYSCALL_ACCESS 14U
-
-#define FCNTL_ARG_NONE 0U
-#define FCNTL_ARG_INT 1U
-#define FCNTL_ARG_FLOCK 2U
 
 struct rpc_encode_cursor {
 	uint8_t *p;

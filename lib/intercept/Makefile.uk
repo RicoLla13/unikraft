@@ -1,6 +1,7 @@
 $(eval $(call addlib_s,libintercept,$(CONFIG_LIBINTERCEPT)))
 
 CINCLUDES-y += -I$(LIBINTERCEPT_BASE)/include
+CINCLUDES-y += -I$(LIBINTERCEPT_BASE)/rpcgen
 CXXINCLUDES-y += -I$(LIBINTERCEPT_BASE)/include
 
 LIBINTERCEPT_SRCS-y += $(LIBINTERCEPT_BASE)/intercept.c
@@ -8,13 +9,10 @@ LIBINTERCEPT_SRCS-y += $(LIBINTERCEPT_BASE)/transport.c
 LIBINTERCEPT_SRCS-y += $(LIBINTERCEPT_BASE)/rpc/rpc_core.c
 LIBINTERCEPT_SRCS-y += $(LIBINTERCEPT_BASE)/rpc/rpc_xdr.c
 LIBINTERCEPT_SRCS-y += $(LIBINTERCEPT_BASE)/rpc/rpc_probe.c
-LIBINTERCEPT_SRCS-y += $(LIBINTERCEPT_BASE)/rpc/rpc_access.c
-LIBINTERCEPT_SRCS-y += $(LIBINTERCEPT_BASE)/rpc/rpc_openat.c
-LIBINTERCEPT_SRCS-y += $(LIBINTERCEPT_BASE)/rpc/rpc_close.c
-LIBINTERCEPT_SRCS-y += $(LIBINTERCEPT_BASE)/rpc/rpc_fcntl.c
-LIBINTERCEPT_SRCS-y += $(LIBINTERCEPT_BASE)/rpc/rpc_fstat.c
-LIBINTERCEPT_SRCS-y += $(LIBINTERCEPT_BASE)/rpc/rpc_newfstatat.c
-LIBINTERCEPT_SRCS-y += $(LIBINTERCEPT_BASE)/rpc/rpc_lseek.c
-LIBINTERCEPT_SRCS-y += $(LIBINTERCEPT_BASE)/rpc/rpc_pread.c
-LIBINTERCEPT_SRCS-y += $(LIBINTERCEPT_BASE)/rpc/rpc_read.c
-LIBINTERCEPT_SRCS-y += $(LIBINTERCEPT_BASE)/rpc/rpc_write.c
+# Short-term RPC model: generated protocol types/stubs on top of a minimal
+# guest-side CLIENT/XDR compatibility runtime and the existing plain TCP
+# transport.
+LIBINTERCEPT_SRCS-y += $(LIBINTERCEPT_BASE)/rpc/rpc_compat.c
+LIBINTERCEPT_SRCS-y += $(LIBINTERCEPT_BASE)/rpc/rpc_generated.c
+LIBINTERCEPT_SRCS-y += $(LIBINTERCEPT_BASE)/rpcgen/protocol_xdr.c
+LIBINTERCEPT_SRCS-y += $(LIBINTERCEPT_BASE)/rpcgen/protocol_clnt.c
