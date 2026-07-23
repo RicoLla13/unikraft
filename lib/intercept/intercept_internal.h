@@ -7,6 +7,14 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <uk/print.h>
+
+#if CONFIG_LIBINTERCEPT_DEBUG_LOG
+#define UK_INTERCEPT_LOG(...) uk_pr_info(__VA_ARGS__)
+#else
+#define UK_INTERCEPT_LOG(...) do { } while (0)
+#endif
+
 enum uk_intercept_fd_backend {
 	UK_INTERCEPT_FD_NONE = 0,
 	UK_INTERCEPT_FD_REMOTE_FILE,

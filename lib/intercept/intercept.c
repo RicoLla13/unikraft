@@ -226,7 +226,7 @@ int uk_intercept_boot_init(struct uk_init_ctx *ictx __unused)
 #endif
 
 	intercept_ready = 1;
-	uk_pr_info("intercept: loaded\n");
+	UK_INTERCEPT_LOG("intercept: loaded\n");
 	return 0;
 }
 

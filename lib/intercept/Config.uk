@@ -5,6 +5,14 @@ config LIBINTERCEPT
 		Loads a minimal intercept library during boot and prints a single
 		message once initialization runs.
 
+config LIBINTERCEPT_DEBUG_LOG
+	bool "intercept: verbose debug logging"
+	depends on LIBINTERCEPT
+	default n
+	help
+		Enable informational intercept and per-RPC logging. Keep disabled for
+		benchmarking because console output distorts latency measurements.
+
 if LIBINTERCEPT
 
 config LIBINTERCEPT_TRANSPORT_SOCKET

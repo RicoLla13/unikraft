@@ -20,14 +20,15 @@ static bool intercept_transport_connected;
 
 void uk_intercept_transport_reset(void)
 {
-	uk_pr_info("intercept: transport reset (fd=%d connected=%d)\n",
-		   intercept_transport_fd, intercept_transport_connected);
+	UK_INTERCEPT_LOG("intercept: transport reset (fd=%d connected=%d)\n",
+			 intercept_transport_fd, intercept_transport_connected);
 
 	if (intercept_transport_fd >= 0)
 		close(intercept_transport_fd);
 
 	intercept_transport_fd = -1;
 	intercept_transport_connected = false;
+	uk_intercept_fdtab_reset();
 }
 
 int uk_intercept_transport_connect(void)
@@ -39,9 +40,9 @@ int uk_intercept_transport_connect(void)
 	if (intercept_transport_connected)
 		return 0;
 
-	uk_pr_info("intercept: transport connect requested to %s:%d\n",
-		   CONFIG_LIBINTERCEPT_REMOTE_IPV4,
-		   CONFIG_LIBINTERCEPT_REMOTE_PORT);
+	UK_INTERCEPT_LOG("intercept: transport connect requested to %s:%d\n",
+			 CONFIG_LIBINTERCEPT_REMOTE_IPV4,
+			 CONFIG_LIBINTERCEPT_REMOTE_PORT);
 
 	fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (fd < 0) {
@@ -49,7 +50,7 @@ int uk_intercept_transport_connect(void)
 		return -errno;
 	}
 
-	uk_pr_info("intercept: socket() created fd=%d\n", fd);
+	UK_INTERCEPT_LOG("intercept: socket() created fd=%d\n", fd);
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
@@ -75,9 +76,9 @@ int uk_intercept_transport_connect(void)
 
 	intercept_transport_fd = fd;
 	intercept_transport_connected = true;
-	uk_pr_info("intercept: transport connected to %s:%d\n",
-		   CONFIG_LIBINTERCEPT_REMOTE_IPV4,
-		   CONFIG_LIBINTERCEPT_REMOTE_PORT);
+	UK_INTERCEPT_LOG("intercept: transport connected to %s:%d\n",
+			 CONFIG_LIBINTERCEPT_REMOTE_IPV4,
+			 CONFIG_LIBINTERCEPT_REMOTE_PORT);
 	return 0;
 }
 
@@ -112,9 +113,9 @@ void uk_intercept_transport_init(void)
 {
 	intercept_transport_fd = -1;
 	intercept_transport_connected = false;
-	uk_pr_info("intercept: transport init remote=%s:%d\n",
-		   CONFIG_LIBINTERCEPT_REMOTE_IPV4,
-		   CONFIG_LIBINTERCEPT_REMOTE_PORT);
+	UK_INTERCEPT_LOG("intercept: transport init remote=%s:%d\n",
+			 CONFIG_LIBINTERCEPT_REMOTE_IPV4,
+			 CONFIG_LIBINTERCEPT_REMOTE_PORT);
 }
 
 void uk_intercept_transport_term(void)
@@ -129,8 +130,8 @@ ssize_t uk_intercept_transport_send(const void *buf, size_t len)
 	if (!buf || !len)
 		return -EINVAL;
 
-	uk_pr_info("intercept: send requested len=%zu connected=%d fd=%d\n",
-		   len, intercept_transport_connected, intercept_transport_fd);
+	UK_INTERCEPT_LOG("intercept: send requested len=%zu connected=%d fd=%d\n",
+			 len, intercept_transport_connected, intercept_transport_fd);
 
 	rc = uk_intercept_transport_connect();
 	if (rc < 0)
@@ -144,7 +145,7 @@ ssize_t uk_intercept_transport_send(const void *buf, size_t len)
 		return rc;
 	}
 
-	uk_pr_info("intercept: send(len=%zu) succeeded rc=%zd\n", len, rc);
+	UK_INTERCEPT_LOG("intercept: send(len=%zu) succeeded rc=%zd\n", len, rc);
 
 	return rc;
 }

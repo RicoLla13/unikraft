@@ -83,7 +83,7 @@ int uk_intercept_rpc_access(const char *path, int mode)
 	access_response *resp;
 	CLIENT *client;
 
-	uk_pr_info("intercept-rpcgen: access('%s', %d)\n", path, mode);
+	UK_INTERCEPT_LOG("intercept-rpcgen: access('%s', %d)\n", path, mode);
 
 	client = uk_intercept_rpc_get_client();
 	if (!client)
@@ -108,7 +108,7 @@ int uk_intercept_rpc_openat(int dfd, const char *path, int flags, mode_t mode)
 	openat_response *resp;
 	CLIENT *client;
 
-	uk_pr_info("intercept-rpcgen: openat(%d, '%s', %d, %o)\n",
+	UK_INTERCEPT_LOG("intercept-rpcgen: openat(%d, '%s', %d, %o)\n",
 		   dfd, path, flags, mode);
 
 	client = uk_intercept_rpc_get_client();
@@ -131,7 +131,7 @@ int uk_intercept_rpc_close(int fd)
 	close_response *resp;
 	CLIENT *client;
 
-	uk_pr_info("intercept-rpcgen: close(%d)\n", fd);
+	UK_INTERCEPT_LOG("intercept-rpcgen: close(%d)\n", fd);
 
 	client = uk_intercept_rpc_get_client();
 	if (!client)
@@ -153,7 +153,7 @@ int uk_intercept_rpc_fstat(int fd, struct stat *statbuf)
 	fstat_response *resp;
 	CLIENT *client;
 
-	uk_pr_info("intercept-rpcgen: fstat(%d)\n", fd);
+	UK_INTERCEPT_LOG("intercept-rpcgen: fstat(%d)\n", fd);
 
 	client = uk_intercept_rpc_get_client();
 	if (!client)
@@ -183,7 +183,7 @@ int uk_intercept_rpc_newfstatat(int dfd, const char *path,
 	newfstatat_response *resp;
 	CLIENT *client;
 
-	uk_pr_info("intercept-rpcgen: newfstatat(%d, '%s', %d)\n",
+	UK_INTERCEPT_LOG("intercept-rpcgen: newfstatat(%d, '%s', %d)\n",
 		   dfd, path, flags);
 
 	client = uk_intercept_rpc_get_client();
@@ -213,7 +213,7 @@ off_t uk_intercept_rpc_lseek(int fd, off_t offset, int whence)
 	lseek_response *resp;
 	CLIENT *client;
 
-	uk_pr_info("intercept-rpcgen: lseek(%d, %lld, %d)\n", fd,
+	UK_INTERCEPT_LOG("intercept-rpcgen: lseek(%d, %lld, %d)\n", fd,
 		   (long long)offset, whence);
 
 	client = uk_intercept_rpc_get_client();
@@ -239,7 +239,7 @@ ssize_t uk_intercept_rpc_pread(int fd, void *buf, size_t count, off_t offset)
 	CLIENT *client;
 	size_t copy_len;
 
-	uk_pr_info("intercept-rpcgen: pread64(%d, %zu, %lld)\n", fd, count,
+	UK_INTERCEPT_LOG("intercept-rpcgen: pread64(%d, %zu, %lld)\n", fd, count,
 		   (long long)offset);
 
 	client = uk_intercept_rpc_get_client();
@@ -270,7 +270,7 @@ ssize_t uk_intercept_rpc_read(int fd, void *buf, size_t count)
 	CLIENT *client;
 	size_t copy_len;
 
-	uk_pr_info("intercept-rpcgen: read(%d, %zu)\n", fd, count);
+	UK_INTERCEPT_LOG("intercept-rpcgen: read(%d, %zu)\n", fd, count);
 
 	client = uk_intercept_rpc_get_client();
 	if (!client)
@@ -302,7 +302,7 @@ ssize_t uk_intercept_rpc_write(int fd, const void *buf, size_t count)
 	write_response *resp;
 	CLIENT *client;
 
-	uk_pr_info("intercept-rpcgen: write(%d, %zu)\n", fd, count);
+	UK_INTERCEPT_LOG("intercept-rpcgen: write(%d, %zu)\n", fd, count);
 
 	client = uk_intercept_rpc_get_client();
 	if (!client)
@@ -368,7 +368,7 @@ int uk_intercept_rpc_fcntl(int fd, int cmd, unsigned long arg,
 		return -EINVAL;
 	}
 
-	uk_pr_info("intercept-rpcgen: fcntl(%d, %d)\n", fd, cmd);
+	UK_INTERCEPT_LOG("intercept-rpcgen: fcntl(%d, %d)\n", fd, cmd);
 
 	client = uk_intercept_rpc_get_client();
 	if (!client)
