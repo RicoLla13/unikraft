@@ -23,7 +23,7 @@
 /*
  * The current RPC implementation uses fixed 8 KiB request/reply buffers and
  * accepts only single-fragment messages. Keep variable-size I/O bounded so the
- * leaf codecs fail before issuing an impossible RPC.
+ * request validation fails before issuing an impossible RPC.
  */
 #define UK_INTERCEPT_RPC_MAX_READ_COUNT \
 	(UK_INTERCEPT_RPC_BUF_SIZE - RPC_ACCEPTED_REPLY_HEADER_SIZE - \
